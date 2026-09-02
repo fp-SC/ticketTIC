@@ -334,8 +334,18 @@
 </div>
 
 <script type="module">
-    // ⚠️ ATENCIÓN: PEGA AQUÍ LA URL EXACTA DE TU DESPLIEGUE DE GOOGLE APPS SCRIPT
-    const URL_DEL_SCRIPT = "https://script.google.com/a/macros/sagrado-corazon.es/s/AKfycbw8Xmgj19NM5yJtGLR-VHbweVduMaQEP6Oq_3COXr3287CTnHJy7x4voSM8JUQ4aZV4/exec";
+    // 1. Pega aquí la URL tal cual te la da Google (con /a/macros/domain.es/...):
+    const URL_ORIGINAL_SCRIPT = "https://script.google.com/a/macros/sagrado-corazon.es/s/AKfycbw8Xmgj19NM5yJtGLR-VHbweVduMaQEP6Oq_3COXr3287CTnHJy7x4voSM8JUQ4aZV4/exec";
+
+    // 2. Función que detecta y elimina la ruta de la organización automáticamente
+    function normalizarUrlAppsScript(url) {
+      if (!url) return "";
+      // Convierte automáticamente cualquier "/a/macros/loquesea.es/s/" en "/macros/s/"
+      return url.replace(/\/a\/macros\/[^\/]+\/s\//, "/macros/s/");
+    }
+
+// 3. Esta es la constante que usará tu aplicación de forma transparente
+const URL_DEL_SCRIPT = normalizarUrlAppsScript(URL_ORIGINAL_SCRIPT);
 
     const { createApp } = Vue;
     createApp({
