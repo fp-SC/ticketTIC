@@ -528,9 +528,15 @@
           if (!t.FechaResolucion || !t.FechaCreacion) return '-';
           const ms = new Date(t.FechaResolucion) - new Date(t.FechaCreacion);
           if (isNaN(ms) || ms < 0) return '-';
-          const horas = ms / 3600000;
-          if (horas < 24) return `${horas.toFixed(1)} h`;
-          return `${(horas / 24).toFixed(1)} días`;
+          const totalMinutos = Math.floor(ms / 60000);
+          const dias = Math.floor(totalMinutos / 1440);
+          const horas = Math.floor((totalMinutos % 1440) / 60);
+          const minutos = totalMinutos % 60;
+          const partes = [];
+          if (dias > 0) partes.push(`${dias} d`);
+          if (horas > 0 || dias > 0) partes.push(`${horas} h`);
+          partes.push(`${minutos} min`);
+          return partes.join(' ');
         },
 
         // ---------- AUTENTICACION INSTITUCIONAL ----------
