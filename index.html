@@ -1,628 +1,839 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Avisos TIC - Sagrado Corazón</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión de Incidencias TIC - Sagrado Corazón</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <style>
-        [v-cloak] { display: none; }
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: linear-gradient(180deg, #03060f 0%, #070e1e 100%);
-        }
-        .spinner { animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-    </style>
+  <style>
+    [v-cloak] { display: none; }
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, #06101d 0%, #0a1627 100%);
+    }
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .bg-glow-blue { filter: blur(140px); background: radial-gradient(circle, rgba(2,84,199,.16) 0%, rgba(0,0,0,0) 70%); }
+    .bg-glow-red { filter: blur(140px); background: radial-gradient(circle, rgba(223,26,26,.15) 0%, rgba(0,0,0,0) 70%); }
+    .bg-glow-gold { filter: blur(140px); background: radial-gradient(circle, rgba(234,179,8,.08) 0%, rgba(0,0,0,0) 70%); }
+    .field {
+      width: 100%; border: 1px solid rgb(71 85 105); border-radius: .5rem;
+      background: #0b1730; color: rgb(241 245 249); padding: .5rem .75rem; outline: none;
+    }
+    .field:focus { border-color: rgb(96 165 250); box-shadow: 0 0 0 2px rgba(96,165,250,.28); }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+    .field-label { display:block; font-size: 10px; font-weight: 700; color: rgb(186 200 219); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .03em; }
+    .badge { display:inline-flex; align-items:center; gap:.25rem; padding:.2rem .55rem; border-radius:9999px; font-size: 11px; font-weight: 700; border: 1px solid; }
+    .badge-nuevo { background: rgba(59,130,246,.12); color: rgb(147 197 253); border-color: rgba(59,130,246,.4); }
+    .badge-en_proceso { background: rgba(234,179,8,.12); color: rgb(253 224 71); border-color: rgba(234,179,8,.4); }
+    .badge-resuelto { background: rgba(16,185,129,.12); color: rgb(110 231 183); border-color: rgba(16,185,129,.4); }
+    .badge-cerrado { background: rgba(100,116,139,.2); color: rgb(203 213 225); border-color: rgba(100,116,139,.5); }
+    .badge-rechazado { background: rgba(239,68,68,.12); color: rgb(252 165 165); border-color: rgba(239,68,68,.4); }
+  </style>
 </head>
 <body class="text-slate-100 antialiased p-3 md:p-6 min-h-screen relative overflow-x-hidden">
+  <div class="absolute top-8 left-8 w-[320px] h-[320px] bg-glow-blue pointer-events-none -z-10"></div>
+  <div class="absolute bottom-10 right-10 w-[360px] h-[360px] bg-glow-red pointer-events-none -z-10"></div>
+  <div class="absolute top-1/2 left-1/3 w-[260px] h-[260px] bg-glow-gold pointer-events-none -z-10"></div>
 
-<div id="app" v-cloak class="max-w-7xl mx-auto min-h-screen flex flex-col justify-between relative z-10">
-    
-    <!-- Modal de Autenticación -->
-    <div v-if="!isAuthenticated" class="fixed inset-0 z-[90] bg-[#03060f]/95 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="w-full max-w-xl bg-[#070e1e] border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center space-y-4">
-            <h2 class="text-2xl font-black text-white">Soporte e Intervenciones TIC</h2>
-            <p class="text-slate-300 text-sm">Accede con tu cuenta del centro para gestionar tus peticiones de asistencia.</p>
-            <p class="text-sky-300 text-sm font-bold">Dominio requerido: @sagrado-corazon.es</p>
+  <div id="app" v-cloak class="max-w-7xl mx-auto">
 
-            <div ref="googleLoginBtn" class="flex justify-center pt-2"></div>
+    <!-- ============ PANTALLA DE LOGIN ============ -->
+    <div v-if="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4">
+      <div class="w-full max-w-xl bg-[#070e1e] border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center">
+        <h2 class="text-3xl font-black text-white mb-2">Acceso Restringido</h2>
+        <p class="text-slate-300 mb-2">Debes iniciar sesión con tu cuenta institucional.</p>
+        <p class="text-sky-300 font-bold mb-6">Solo se permite el dominio @sagrado-corazon.es</p>
 
-            <p v-if="authError" class="mt-4 text-red-300 text-xs bg-red-950/50 border border-red-800/60 rounded-xl p-3 text-left font-medium">
-                <i class="ph ph-warning text-base align-middle mr-1"></i> {{ authError }}
-            </p>
-        </div>
-    </div>
-    
-    <div :class="!isAuthenticated ? 'pointer-events-none select-none blur-[2px]' : ''" class="space-y-6">
-        
-        <!-- Header Principal -->
-        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#070e1e]/90 p-5 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-md">
-            <div class="flex items-center gap-4">
-                <div class="w-14 h-14 bg-blue-600/20 border border-blue-500/40 rounded-xl flex items-center justify-center text-blue-400 text-2xl flex-shrink-0">
-                    <i class="ph ph-desktop-tower"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                        <span>Colegio Sagrado Corazón</span>
-                        <span class="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/60 px-2.5 py-0.5 rounded-full font-extrabold">
-                            Curso {{ configGlobal.activeYear }}
-                        </span>
-                    </h1>
-                    <p class="text-xs text-slate-400 font-semibold">Gestión de Avisos e Intervenciones TIC</p>
-                </div>
-            </div>
-            
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl border border-sky-500/25 text-xs font-bold bg-sky-500/10 text-sky-200">
-                    <i class="ph ph-user-circle text-base text-sky-300"></i>
-                    <span class="truncate max-w-[180px]">{{ currentUserEmail }}</span>
-                </div>
+        <div ref="googleLoginBtn" class="flex justify-center min-h-[44px]"></div>
 
-                <!-- Botón de cambio de vista para Admin -->
-                <button v-if="isAdmin" type="button" @click="currentView = currentView === 'docente' ? 'tic' : 'docente'" 
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-950/50 border border-indigo-400/40 transition transform hover:-translate-y-0.5">
-                    <i :class="currentView === 'tic' ? 'ph ph-user' : 'ph ph-wrench'"></i>
-                    <span>{{ currentView === 'tic' ? 'Vista Docente' : 'Panel TIC / Admin' }}</span>
-                </button>
-
-                <button type="button" @click="logoutSession" 
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition">
-                    <i class="ph ph-sign-out"></i>
-                    <span>Salir</span>
-                </button>
-            </div>
-        </header>
-
-        <!-- VISTA DOCENTE: Crear y consultar avisos -->
-        <div v-if="currentView === 'docente'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- Formulario de Envío -->
-            <div class="lg:col-span-1 bg-[#070e1e] p-6 rounded-2xl shadow-xl border border-slate-800 space-y-4">
-                <div>
-                    <h2 class="text-lg font-black text-white flex items-center gap-2">
-                        <i class="ph ph-plus-circle text-blue-400"></i> Nuevo Aviso de Soporte TIC
-                    </h2>
-                    <p class="text-xs text-slate-400 mt-1">Registra tu incidencia para el curso <strong class="text-sky-300">{{ configGlobal.activeYear }}</strong>.</p>
-                </div>
-
-                <form @submit.prevent="submitTicket" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Etapa Educativa</label>
-                        <select v-model="newTicket.stage" required class="w-full text-xs border border-slate-700 rounded-xl p-3 bg-[#040914] text-slate-100 font-semibold outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="Infantil">Infantil</option>
-                            <option value="Primaria">Primaria</option>
-                            <option value="ESO">ESO</option>
-                            <option value="FP">Formación Profesional (FP)</option>
-                            <option value="Otras">Otras / Dirección / Administración</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Ubicación / Aula</label>
-                        <input type="text" v-model="newTicket.location" placeholder="Ej: Aula 204, Salón de Actos..." required class="w-full text-xs border border-slate-700 rounded-xl p-3 bg-[#040914] text-slate-100 font-semibold outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Título del problema</label>
-                        <input type="text" v-model="newTicket.title" placeholder="Ej: Proyector parpadea, sin red WiFi..." required class="w-full text-xs border border-slate-700 rounded-xl p-3 bg-[#040914] text-slate-100 font-semibold outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Descripción detallada</label>
-                        <textarea v-model="newTicket.description" rows="4" placeholder="Indica detalles del fallo..." class="w-full text-xs border border-slate-700 rounded-xl p-3 bg-[#040914] text-slate-100 font-semibold outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                    </div>
-
-                    <button type="submit" :disabled="isSubmitting" 
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-black shadow-lg shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
-                        <i v-if="isSubmitting" class="ph ph-spinner spinner text-base"></i>
-                        <i v-else class="ph ph-paper-plane-tilt text-base"></i>
-                        <span>{{ isSubmitting ? 'Enviando...' : 'Enviar Aviso TIC' }}</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Listado de Avisos del Docente -->
-            <div class="lg:col-span-2 bg-[#070e1e] p-6 rounded-2xl shadow-xl border border-slate-800 space-y-4">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-lg font-black text-white flex items-center gap-2">
-                        <i class="ph ph-clock-counter-clockwise text-blue-400"></i> Mis Avisos Registrados
-                    </h2>
-                    <span class="text-xs text-slate-400 font-bold">Curso: {{ configGlobal.activeYear }}</span>
-                </div>
-
-                <div v-if="myTickets.length === 0" class="text-center py-12 text-slate-500 text-sm">
-                    No has registrado ningún aviso en el curso activo.
-                </div>
-
-                <div v-else class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                    <div v-for="ticket in myTickets" :key="ticket.id" class="bg-[#040914] p-4 rounded-xl border border-slate-800 space-y-2">
-                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-black text-sky-400">{{ ticket.id }}</span>
-                                <span class="text-xs font-bold text-white">{{ ticket.location }}</span>
-                                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-bold">{{ ticket.stage }}</span>
-                            </div>
-                            <span :class="getStatusBadgeClass(ticket.status)" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase">
-                                {{ ticket.status }}
-                            </span>
-                        </div>
-
-                        <h3 class="text-sm font-bold text-slate-100">{{ ticket.title }}</h3>
-                        <p class="text-xs text-slate-400">{{ ticket.description }}</p>
-
-                        <div v-if="ticket.resolutionNotes" class="bg-blue-950/30 border-l-2 border-blue-500 p-2.5 rounded text-xs text-blue-200">
-                            <strong>Diagnóstico TIC:</strong> {{ ticket.resolutionNotes }}
-                        </div>
-
-                        <div class="text-[10px] text-slate-500 flex justify-between pt-1">
-                            <span>Fecha: {{ formatDate(ticket.createdAt) }}</span>
-                            <span>Actualizado: {{ formatDate(ticket.updatedAt) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div v-if="isLoadingAuth" class="mt-4 text-slate-300 text-sm flex items-center justify-center gap-2">
+          <i class="ph ph-spinner spinner"></i> Cargando acceso institucional...
         </div>
 
-        <!-- VISTA PANEL TIC / ADMINISTRACIÓN -->
-        <div v-if="currentView === 'tic'" class="space-y-6">
+        <p v-if="authError" class="mt-5 text-red-300 text-sm bg-red-950/30 border border-red-800/40 rounded-lg p-3">{{ authError }}</p>
 
-            <!-- CONFIGURACIÓN DE CURSOS Y ACCESO DOCENTE (SOLO ADMIN) -->
-            <div class="bg-[#070e1e] p-6 rounded-2xl border border-indigo-900/50 shadow-xl space-y-6">
-                <div class="border-b border-slate-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-lg font-black text-indigo-300 flex items-center gap-2">
-                            <i class="ph ph-gear text-xl"></i> Configuración del Sistema TIC
-                        </h2>
-                        <p class="text-xs text-slate-400">Gestiona los cursos académicos y los permisos de acceso de los profesores.</p>
-                    </div>
-
-                    <button type="button" @click="saveGlobalConfig" :disabled="isSavingConfig"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-950/50 border border-emerald-400/40 transition transform hover:-translate-y-0.5">
-                        <i v-if="isSavingConfig" class="ph ph-spinner spinner text-base"></i>
-                        <i v-else class="ph ph-floppy-disk text-base"></i>
-                        <span>{{ isSavingConfig ? 'Guardando...' : 'Guardar Ajustes Globales' }}</span>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    
-                    <!-- Configuración de Cursos Académicos -->
-                    <div class="space-y-4 bg-[#040914] p-4 rounded-xl border border-slate-800">
-                        <h3 class="text-xs font-extrabold uppercase text-sky-400 flex items-center gap-1.5">
-                            <i class="ph ph-calendar text-base"></i> Cursos Académicos
-                        </h3>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-300 mb-1">Curso Activo (Donde entran nuevos avisos):</label>
-                            <select v-model="configGlobal.activeYear" class="w-full text-xs border border-slate-700 rounded-lg p-2.5 bg-[#0d1b35] text-white font-bold">
-                                <option v-for="y in configGlobal.years" :key="y" :value="y">{{ y }}</option>
-                            </select>
-                        </div>
-
-                        <div class="pt-2 border-t border-slate-800">
-                            <label class="block text-xs font-bold text-slate-300 mb-1">Añadir Nuevo Curso Académico:</label>
-                            <div class="flex gap-2">
-                                <input type="text" v-model="newYearInput" placeholder="Ej: 2026-2027" class="w-full text-xs border border-slate-700 rounded-lg p-2 bg-[#0d1b35] text-white">
-                                <button type="button" @click="addNewYear" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition">Añadir</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Configuración de Docentes Autorizados -->
-                    <div class="space-y-4 bg-[#040914] p-4 rounded-xl border border-slate-800">
-                        <h3 class="text-xs font-extrabold uppercase text-amber-400 flex items-center gap-1.5">
-                            <i class="ph ph-users-three text-base"></i> Restricción de Docentes Autorizados
-                        </h3>
-                        
-                        <p class="text-[11px] text-slate-400">
-                            Escribe un correo por línea o separado por comas. Si la lista está <strong>vacía</strong>, cualquier docente con cuenta <code>@sagrado-corazon.es</code> podrá utilizar la plataforma.
-                        </p>
-
-                        <textarea v-model="allowedTeachersRaw" rows="4" placeholder="profesor1@sagrado-corazon.es&#10;profesor2@sagrado-corazon.es" class="w-full text-xs border border-slate-700 rounded-lg p-2.5 bg-[#0d1b35] text-white font-mono"></textarea>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- FILTRO DE CURSO EN PANEL DE GESTIÓN -->
-            <div class="bg-[#070e1e] p-5 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <span class="text-xs font-bold text-slate-400">Consultando Datos del Curso:</span>
-                    <select v-model="selectedYear" @change="loadDataForSelectedYear" class="text-xs font-black border border-sky-500/50 rounded-xl px-3 py-2 bg-[#0d1b35] text-sky-300 outline-none">
-                        <option v-for="y in configGlobal.years" :key="y" :value="y">{{ y }} {{ y === configGlobal.activeYear ? '(Activo)' : '' }}</option>
-                    </select>
-                </div>
-
-                <button type="button" @click="exportReportCsv" 
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md border border-emerald-400/40 transition">
-                    <i class="ph ph-file-csv text-base"></i>
-                    <span>Exportar CSV de este Curso</span>
-                </button>
-            </div>
-
-            <!-- INDICADORES CLAVE -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div class="bg-[#070e1e] p-4 rounded-xl border border-slate-800 text-center">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase">Total Avisos</p>
-                    <p class="text-2xl font-black text-white mt-1">{{ filteredTickets.length }}</p>
-                </div>
-                <div class="bg-[#070e1e] p-4 rounded-xl border border-slate-800 text-center">
-                    <p class="text-[10px] text-amber-400 font-bold uppercase">Pendientes</p>
-                    <p class="text-2xl font-black text-amber-300 mt-1">{{ countStatus('Pendiente') }}</p>
-                </div>
-                <div class="bg-[#070e1e] p-4 rounded-xl border border-slate-800 text-center">
-                    <p class="text-[10px] text-blue-400 font-bold uppercase">En Proceso</p>
-                    <p class="text-2xl font-black text-blue-300 mt-1">{{ countStatus('En Proceso') }}</p>
-                </div>
-                <div class="bg-[#070e1e] p-4 rounded-xl border border-slate-800 text-center">
-                    <p class="text-[10px] text-emerald-400 font-bold uppercase">Resueltos</p>
-                    <p class="text-2xl font-black text-emerald-300 mt-1">{{ countStatus('Resuelto') }}</p>
-                </div>
-                <div class="bg-[#070e1e] p-4 rounded-xl border border-slate-800 text-center">
-                    <p class="text-[10px] text-indigo-400 font-bold uppercase">Horas Invertidas</p>
-                    <p class="text-2xl font-black text-indigo-300 mt-1">{{ (totalResolutionMinutes / 60).toFixed(1) }} h</p>
-                </div>
-            </div>
-
-            <!-- LISTA DE TICKETS TIC -->
-            <div class="space-y-4">
-                <div v-for="ticket in filteredTickets" :key="ticket.id" class="bg-[#070e1e] p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="text-xs font-black text-sky-400">{{ ticket.id }}</span>
-                            <span class="text-xs font-bold text-white">{{ ticket.location }}</span>
-                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-bold">{{ ticket.stage }}</span>
-                            <span class="text-xs text-slate-400">Docente: <strong>{{ ticket.requesterEmail }}</strong></span>
-                        </div>
-                        
-                        <div class="flex items-center gap-2">
-                            <select v-model="ticket.status" @change="saveTicketChanges(ticket)" class="text-xs font-bold border border-slate-700 rounded-lg py-1.5 px-3 bg-[#0d1b35] text-white">
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="En Proceso">En Proceso</option>
-                                <option value="Resuelto">Resuelto</option>
-                                <option value="Cancelado">Cancelado / No procede</option>
-                            </select>
-
-                            <button type="button" @click="sendNotificationMail(ticket)" 
-                                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow transition">
-                                <i class="ph ph-envelope"></i> Notificar
-                            </button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 class="text-sm font-bold text-white">{{ ticket.title }}</h4>
-                        <p class="text-xs text-slate-300 mt-1">{{ ticket.description }}</p>
-                    </div>
-
-                    <!-- Opciones Técnicas TIC -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#040914] p-3 rounded-xl border border-slate-800 text-xs">
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1">Imputable al TIC:</label>
-                            <select v-model="ticket.isTicResponsibility" @change="saveTicketChanges(ticket)" class="w-full p-2 border border-slate-700 rounded bg-[#0d1b35] text-white font-bold">
-                                <option :value="true">Sí (Problema técnico / TIC)</option>
-                                <option :value="false">No (Uso / Infraestructura externa)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1">Tiempo resolución (Minutos):</label>
-                            <input type="number" min="0" step="5" v-model.number="ticket.resolutionTimeMinutes" @change="saveTicketChanges(ticket)" class="w-full p-2 border border-slate-700 rounded bg-[#0d1b35] text-white font-bold">
-                        </div>
-
-                        <div>
-                            <label class="block font-bold text-slate-400 mb-1">Notas de resolución:</label>
-                            <input type="text" v-model="ticket.resolutionNotes" @change="saveTicketChanges(ticket)" placeholder="Solución aplicada..." class="w-full p-2 border border-slate-700 rounded bg-[#0d1b35] text-white">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
+        <button type="button" @click="ensureGoogleLoginReady" class="mt-4 px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-sm font-bold">
+          Reintentar carga de Google
+        </button>
+      </div>
     </div>
 
-    <footer class="mt-8 border-t border-slate-800/80 py-4 text-center text-slate-500 text-xs">
-        <p>© 2026 Colegio Sagrado Corazón - Departamento TIC</p>
-    </footer>
-</div>
+    <!-- ============ APP ============ -->
+    <div v-else>
+      <div v-if="busy.active" class="fixed inset-0 z-[99] bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
+        <div class="bg-[#070e1e] border border-slate-700 rounded-xl px-6 py-4 shadow-2xl flex items-center gap-3">
+          <i class="ph ph-spinner spinner text-2xl text-blue-400"></i>
+          <span class="text-sm font-semibold text-slate-100">{{ busy.label || 'Procesando...' }}</span>
+        </div>
+      </div>
 
-<script type="module">
-    // 1. Pega aquí la URL tal cual te la da Google (con /a/macros/domain.es/...):
-    const URL_ORIGINAL_SCRIPT = "https://script.google.com/a/macros/sagrado-corazon.es/s/AKfycbw8Xmgj19NM5yJtGLR-VHbweVduMaQEP6Oq_3COXr3287CTnHJy7x4voSM8JUQ4aZV4/exec";
+      <div v-if="toast.show" class="fixed inset-0 z-[100] bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-4">
+        <div :class="toast.type === 'error' ? 'bg-red-950/95 border-red-700 text-red-100' : 'bg-emerald-950/95 border-emerald-700 text-emerald-100'"
+          class="w-full max-w-lg border rounded-xl shadow-2xl p-4 text-sm">
+          <div class="flex items-start gap-2">
+            <i :class="toast.type === 'error' ? 'ph ph-warning-circle text-red-300' : 'ph ph-check-circle text-emerald-300'" class="text-lg mt-0.5"></i>
+            <div class="flex-1 whitespace-pre-line">{{ toast.message }}</div>
+            <button @click="toast.show = false" class="text-slate-200 hover:text-white px-3 py-1 rounded border border-slate-600 bg-slate-800/40">{{ (toast.sticky || toast.type === 'error') ? 'Aceptar' : 'Cerrar' }}</button>
+          </div>
+        </div>
+      </div>
 
-    // 2. Función que detecta y elimina la ruta de la organización automáticamente
-    function normalizarUrlAppsScript(url) {
-      if (!url) return "";
-      // Convierte automáticamente cualquier "/a/macros/loquesea.es/s/" en "/macros/s/"
-      return url.replace(/\/a\/macros\/[^\/]+\/s\//, "/macros/s/");
-    }
+      <header class="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#070e1e]/90 p-5 rounded-2xl border border-slate-800 shadow-2xl">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-xl bg-[#040914] border border-slate-700 flex items-center justify-center">
+            <i class="ph ph-headset text-3xl text-blue-400"></i>
+          </div>
+          <div>
+            <h1 class="text-xl md:text-2xl font-black">Gestión de Incidencias TIC <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400">Sagrado Corazón</span></h1>
+            <p class="text-xs text-slate-400 font-semibold">Plataforma de avisos técnicos del profesorado</p>
+          </div>
+        </div>
 
-// 3. Esta es la constante que usará tu aplicación de forma transparente
-const URL_DEL_SCRIPT = normalizarUrlAppsScript(URL_ORIGINAL_SCRIPT);
+        <div class="flex flex-wrap items-center gap-2">
+          <select v-if="isAdmin" v-model="selectedCursoAcademicoId" @change="refreshSnapshot" class="px-3 py-2 rounded-lg bg-[#040914] border border-slate-700 text-xs font-bold text-slate-200">
+            <option v-for="c in cursosAcademicos" :key="c.id" :value="c.id">{{ c.Nombre_Curso }}{{ c.id === activeCursoAcademicoId ? ' (curso activo)' : '' }}</option>
+          </select>
+          <div class="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200 font-semibold max-w-[280px] truncate">{{ currentUserEmail }}</div>
+          <div v-if="isAdmin" class="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs font-bold text-indigo-200">Perfil TIC</div>
+          <button @click="refreshSnapshot" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-600 text-slate-200 text-xs font-bold transition">
+            <i class="ph ph-arrows-clockwise text-sm text-sky-400"></i>
+            <span>Recargar</span>
+          </button>
+          <button @click="logoutInstitutionalSession" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-950/30 hover:bg-red-900/50 active:bg-red-950 border border-red-800/50 text-red-300 hover:text-red-100 text-xs font-bold transition">
+            <i class="ph ph-sign-out text-sm"></i>
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      </header>
 
+      <div v-if="lastSyncError" class="mb-4 bg-amber-950/40 border border-amber-700/60 text-amber-200 rounded-xl p-3 text-xs">
+        <div class="font-bold mb-1">Aviso</div>
+        <div>{{ lastSyncError }}</div>
+      </div>
+
+      <div v-if="!isUrlConfigured" class="mb-4 bg-red-950/40 border border-red-800 text-red-200 rounded-xl p-3 text-sm">
+        Configura la variable URL_DEL_SCRIPT en este HTML con la URL /exec del desplegable de Apps Script.
+      </div>
+
+      <nav class="mb-5 bg-[#070e1e]/90 rounded-2xl border border-slate-800 p-2 flex flex-wrap gap-2">
+        <button v-for="item in navItems" :key="item.key" @click="activeTab = item.key"
+          :class="activeTab === item.key ? 'bg-blue-600 text-white' : 'bg-[#040914] text-slate-300 border border-slate-700'"
+          class="px-3 py-2 rounded-lg text-xs font-bold transition">
+          <i :class="item.icon"></i> {{ item.label }}
+        </button>
+      </nav>
+
+      <!-- ================= NUEVO AVISO (docentes) ================= -->
+      <section v-if="activeTab === 'nuevo'" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-1">Enviar un aviso al TIC</h2>
+          <p class="text-xs text-slate-400 mb-4">Describe la incidencia con el mayor detalle posible para agilizar su resolución.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div><span class="field-label">Título breve</span><input v-model="ticketForm.Titulo" placeholder="Ej: No funciona el proyector" class="field" /></div>
+            <div><span class="field-label">Tu nombre</span><input v-model="ticketForm.SolicitanteNombre" class="field" /></div>
+            <div>
+              <span class="field-label">Etapa</span>
+              <select v-model="ticketForm.Etapa" class="field">
+                <option value="">Selecciona etapa</option>
+                <option v-for="e in etapas" :key="e.value" :value="e.value">{{ e.label }}</option>
+              </select>
+            </div>
+            <div><span class="field-label">Lugar (aula, despacho...)</span><input v-model="ticketForm.Lugar" class="field" /></div>
+            <div>
+              <span class="field-label">Categoría</span>
+              <select v-model="ticketForm.Categoria" class="field">
+                <option value="">Selecciona categoría</option>
+                <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <div class="md:col-span-2"><span class="field-label">Descripción del problema</span><textarea v-model="ticketForm.Descripcion" rows="4" class="field"></textarea></div>
+          </div>
+
+          <div class="mt-4 flex justify-end">
+            <button @click="sendTicket" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-paper-plane-tilt text-base"></i>
+              <span>Enviar aviso</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= MIS AVISOS (docentes) / TODOS LOS AVISOS (TIC) ================= -->
+      <section v-if="activeTab === 'avisos'" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="font-black text-lg text-white">{{ isAdmin ? 'Todos los avisos' : 'Mis avisos' }}</h2>
+            <div class="flex flex-wrap items-center gap-2">
+              <input v-model="ticketQuery" placeholder="Buscar por título, lugar o solicitante..." class="px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs w-64" />
+              <select v-if="isAdmin" v-model="filterEstado" class="px-3 py-2 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+                <option value="">Todos los estados</option>
+                <option v-for="es in estados" :key="es.value" :value="es.value">{{ es.label }}</option>
+              </select>
+              <select v-if="isAdmin" v-model="filterEtapa" class="px-3 py-2 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+                <option value="">Todas las etapas</option>
+                <option v-for="e in etapas" :key="e.value" :value="e.value">{{ e.label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Título</th>
+                  <th class="p-2 text-left">Etapa</th>
+                  <th class="p-2 text-left">Lugar</th>
+                  <th v-if="isAdmin" class="p-2 text-left">Solicitante</th>
+                  <th class="p-2 text-left">Estado</th>
+                  <th v-if="isAdmin" class="p-2 text-left">Resp. TIC</th>
+                  <th class="p-2 text-left">Fecha</th>
+                  <th class="p-2 text-left">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in filteredTickets" :key="t.id" class="border-t border-slate-800 align-top">
+                  <td class="p-2 font-semibold">{{ t.Titulo }}<div class="text-slate-400 font-normal">{{ t.Categoria || '-' }}</div></td>
+                  <td class="p-2">{{ etapaLabel(t.Etapa) }}</td>
+                  <td class="p-2">{{ t.Lugar || '-' }}</td>
+                  <td v-if="isAdmin" class="p-2">{{ t.SolicitanteNombre }}<div class="text-slate-500">{{ t.SolicitanteEmail }}</div></td>
+                  <td class="p-2"><span :class="'badge badge-' + t.Estado">{{ estadoLabel(t.Estado) }}</span></td>
+                  <td v-if="isAdmin" class="p-2">{{ t.ResponsabilidadTIC ? 'Sí' : 'No' }}</td>
+                  <td class="p-2">{{ formatFecha(t.FechaCreacion) }}</td>
+                  <td class="p-2">
+                    <button @click="openTicketDetail(t)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white border border-slate-600 hover:border-sky-400 text-xs font-semibold transition">
+                      <i class="ph ph-eye text-sky-400"></i>
+                      <span>Ver</span>
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="filteredTickets.length === 0"><td :colspan="isAdmin ? 8 : 6" class="p-4 text-center text-slate-400">No hay avisos que mostrar.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Detalle / edición de un aviso -->
+        <div v-if="selectedTicket" class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-white">{{ selectedTicket.Titulo }}</h3>
+            <button @click="selectedTicket = null" class="text-slate-400 hover:text-white"><i class="ph ph-x text-lg"></i></button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
+            <div><span class="field-label">Etapa</span><div>{{ etapaLabel(selectedTicket.Etapa) }}</div></div>
+            <div><span class="field-label">Lugar</span><div>{{ selectedTicket.Lugar || '-' }}</div></div>
+            <div><span class="field-label">Categoría</span><div>{{ selectedTicket.Categoria || '-' }}</div></div>
+            <div><span class="field-label">Solicitante</span><div>{{ selectedTicket.SolicitanteNombre }} ({{ selectedTicket.SolicitanteEmail }})</div></div>
+            <div class="md:col-span-2"><span class="field-label">Descripción</span><div class="whitespace-pre-line">{{ selectedTicket.Descripcion }}</div></div>
+          </div>
+
+          <div v-if="isAdmin" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3 mb-3">
+            <div>
+              <span class="field-label">Estado</span>
+              <select v-model="ticketEditForm.Estado" class="field">
+                <option v-for="es in estados" :key="es.value" :value="es.value">{{ es.label }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Responsabilidad del TIC</span>
+              <select v-model="ticketEditForm.ResponsabilidadTIC" class="field">
+                <option :value="true">Sí</option>
+                <option :value="false">No</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Comentario (opcional)</span>
+              <input v-model="ticketEditForm.Comentario" class="field" />
+            </div>
+            <div class="md:col-span-3 flex flex-wrap gap-2 justify-end pt-1">
+              <button @click="saveTicketChanges" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition">
+                <i class="ph ph-check text-base"></i><span>Guardar cambios</span>
+              </button>
+              <button @click="notifyTicketStatus" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold shadow-sm transition">
+                <i class="ph ph-envelope-simple text-base"></i><span>Notificar por email</span>
+              </button>
+              <button @click="removeTicket" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
+                <i class="ph ph-trash"></i><span>Eliminar</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <span class="field-label">Historial</span>
+            <div class="space-y-1 mt-1">
+              <div v-for="(h, idx) in (selectedTicket.Historial || []).slice().reverse()" :key="idx" class="text-xs bg-[#040914] border border-slate-800 rounded-lg p-2">
+                <span class="font-semibold text-slate-200">{{ formatFecha(h.fecha) }}</span> ·
+                <span :class="'badge badge-' + h.estado">{{ estadoLabel(h.estado) }}</span>
+                <span class="text-slate-400"> — {{ h.autor }}</span>
+                <div v-if="h.comentario" class="text-slate-300 mt-0.5">{{ h.comentario }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= INFORMES (TIC) ================= -->
+      <section v-if="activeTab === 'informes' && isAdmin" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-3">Informes de actividad</h2>
+          <div class="flex flex-wrap items-end gap-3 mb-4">
+            <div><span class="field-label">Desde</span><input type="date" v-model="reportFrom" class="field" /></div>
+            <div><span class="field-label">Hasta</span><input type="date" v-model="reportTo" class="field" /></div>
+            <button @click="exportReportCsv" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-xs font-bold transition">
+              <i class="ph ph-file-csv text-base"></i><span>Exportar CSV</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Total avisos</p><p class="text-2xl font-black text-white">{{ reportStats.total }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Infantil/Primaria/ESO</p><p class="text-2xl font-black text-white">{{ reportStats.infantil_primaria_eso }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">FP</p><p class="text-2xl font-black text-white">{{ reportStats.fp }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Otros</p><p class="text-2xl font-black text-white">{{ reportStats.otros }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Responsabilidad TIC</p><p class="text-2xl font-black text-white">{{ reportStats.responsabilidadTic }}</p></div>
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="w-full text-xs">
+              <thead class="bg-[#040914] text-slate-300">
+                <tr>
+                  <th class="p-2 text-left">Título</th>
+                  <th class="p-2 text-left">Etapa</th>
+                  <th class="p-2 text-left">Lugar</th>
+                  <th class="p-2 text-left">Solicitante</th>
+                  <th class="p-2 text-left">Estado</th>
+                  <th class="p-2 text-left">Resp. TIC</th>
+                  <th class="p-2 text-left">Creado</th>
+                  <th class="p-2 text-left">Resuelto</th>
+                  <th class="p-2 text-left">Tiempo resolución</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in reportTickets" :key="t.id" class="border-t border-slate-800">
+                  <td class="p-2">{{ t.Titulo }}</td>
+                  <td class="p-2">{{ etapaLabel(t.Etapa) }}</td>
+                  <td class="p-2">{{ t.Lugar || '-' }}</td>
+                  <td class="p-2">{{ t.SolicitanteNombre }}</td>
+                  <td class="p-2"><span :class="'badge badge-' + t.Estado">{{ estadoLabel(t.Estado) }}</span></td>
+                  <td class="p-2">{{ t.ResponsabilidadTIC ? 'Sí' : 'No' }}</td>
+                  <td class="p-2">{{ formatFecha(t.FechaCreacion) }}</td>
+                  <td class="p-2">{{ t.FechaResolucion ? formatFecha(t.FechaResolucion) : '-' }}</td>
+                  <td class="p-2">{{ resolutionTime(t) }}</td>
+                </tr>
+                <tr v-if="reportTickets.length === 0"><td colspan="9" class="p-4 text-center text-slate-400">No hay avisos en el rango seleccionado.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ADMINISTRACION (TIC) ================= -->
+      <section v-if="activeTab === 'admin' && isAdmin" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-3">Cursos académicos</h2>
+          <div class="flex flex-wrap items-end gap-2 mb-3">
+            <div><span class="field-label">Nombre del curso</span><input v-model="cursoAcademicoForm.Nombre_Curso" placeholder="Ej: 2026/2027" class="field" /></div>
+            <button @click="saveCursoAcademico" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">
+              <i class="ph ph-plus text-base"></i><span>Crear curso</span>
+            </button>
+          </div>
+          <div class="space-y-1">
+            <div v-for="c in cursosAcademicos" :key="c.id" class="flex items-center justify-between bg-[#040914] border border-slate-800 rounded-lg p-2 text-sm">
+              <span>{{ c.Nombre_Curso }} <span v-if="c.id === activeCursoAcademicoId" class="text-emerald-400 text-xs font-bold">(activo)</span></span>
+              <button v-if="c.id !== activeCursoAcademicoId" @click="setCursoActivo(c)" class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-emerald-700 border border-slate-600 text-xs font-semibold transition">Marcar como activo</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-3">Docentes autorizados</h2>
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <input v-model="newAllowedEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
+            <button @click="addAllowedTeacher" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span v-for="email in accessControl.allowedEmails" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+              {{ email }}
+              <button @click="removeAllowedTeacher(email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
+            </span>
+            <span v-if="accessControl.allowedEmails.length === 0" class="text-xs text-slate-400">No hay docentes autorizados todavía.</span>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-3">Correos de dirección por etapa</h2>
+          <p class="text-xs text-slate-400 mb-3">Se avisará a estos correos (además del solicitante) al pulsar "Notificar por email" en un aviso de cada etapa.</p>
+          <div v-for="e in etapas" :key="e.value" class="mb-4">
+            <span class="field-label">{{ e.label }}</span>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <input v-model="newEtapaEmail[e.value]" placeholder="direccion@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
+              <button @click="addEtapaEmail(e.value)" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="email in (etapaEmails[e.value] || [])" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+                {{ email }}
+                <button @click="removeEtapaEmail(e.value, email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
+              </span>
+              <span v-if="(etapaEmails[e.value] || []).length === 0" class="text-xs text-slate-400">Sin correos configurados.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module">
+    const URL_DEL_SCRIPT = 'https://script.google.com/a/macros/sagrado-corazon.es/s/AKfycbw8Xmgj19NM5yJtGLR-VHbweVduMaQEP6Oq_3COXr3287CTnHJy7x4voSM8JUQ4aZV4/exec';
+                            
     const { createApp } = Vue;
+
     createApp({
-        data() {
-            return {
-                isAuthenticated: false,
-                currentUserEmail: '',
-                isAdmin: false,
-                authError: '',
-                currentView: 'docente',
-                googleClientId: '523053820797-pgh6mp7hagllp1cdhul8l5j2lulb78g2.apps.googleusercontent.com',
-                institutionalDomain: 'sagrado-corazon.es',
-                isSubmitting: false,
-                isSavingConfig: false,
-                selectedYear: '2025-2026',
-                newYearInput: '',
-                allowedTeachersRaw: '',
-                configGlobal: {
-                    activeYear: '2025-2026',
-                    years: ['2025-2026'],
-                    allowedTeachers: []
-                },
-                tickets: [],
-                newTicket: {
-                    stage: 'ESO',
-                    location: '',
-                    title: '',
-                    description: ''
-                }
-            }
+      data() {
+        return {
+          driveUrl: URL_DEL_SCRIPT.includes('script.google.com') ? URL_DEL_SCRIPT : '',
+          institutionalDomain: 'sagrado-corazon.es',
+          googleClientId: '523053820797-pgh6mp7hagllp1cdhul8l5j2lulb78g2.apps.googleusercontent.com',
+
+          isAuthenticated: false,
+          isLoadingAuth: false,
+          currentUserEmail: '',
+          authError: '',
+          lastSyncError: '',
+          busy: { active: false, label: '' },
+          toast: { show: false, type: 'success', message: '' },
+          toastTimer: null,
+
+          isAdmin: false,
+          accessControl: { adminEmails: [], allowedEmails: [] },
+          newAllowedEmail: '',
+
+          activeTab: 'nuevo',
+          tickets: [],
+          etapas: [],
+          etapaEmails: {},
+          newEtapaEmail: { infantil_primaria_eso: '', fp: '', otros: '' },
+          cursosAcademicos: [],
+          activeCursoAcademicoId: '',
+          selectedCursoAcademicoId: '',
+          cursoAcademicoForm: { Nombre_Curso: '' },
+
+          categorias: [
+            'Hardware (equipo/dispositivo)', 'Software/Aplicaciones', 'Red / Internet / WiFi',
+            'Impresora / Escáner', 'Proyector / Pizarra digital', 'Cuentas y accesos', 'Otro'
+          ],
+          estados: [
+            { value: 'nuevo', label: 'Nuevo' },
+            { value: 'en_proceso', label: 'En proceso' },
+            { value: 'resuelto', label: 'Resuelto' },
+            { value: 'cerrado', label: 'Cerrado' },
+            { value: 'rechazado', label: 'Rechazado / No procede' }
+          ],
+
+          ticketForm: { Titulo: '', SolicitanteNombre: '', Etapa: '', Lugar: '', Categoria: '', Descripcion: '' },
+          ticketQuery: '',
+          filterEstado: '',
+          filterEtapa: '',
+          selectedTicket: null,
+          ticketEditForm: { Estado: 'nuevo', ResponsabilidadTIC: false, Comentario: '' },
+
+          reportFrom: '',
+          reportTo: ''
+        };
+      },
+      computed: {
+        isUrlConfigured() { return !!this.driveUrl; },
+        navItems() {
+          const items = [];
+          if (!this.isAdmin) items.push({ key: 'nuevo', label: 'Nuevo aviso', icon: 'ph ph-plus-circle' });
+          items.push({ key: 'avisos', label: this.isAdmin ? 'Todos los avisos' : 'Mis avisos', icon: 'ph ph-ticket' });
+          if (this.isAdmin) items.push({ key: 'informes', label: 'Informes', icon: 'ph ph-chart-bar' });
+          if (this.isAdmin) items.push({ key: 'admin', label: 'Administración', icon: 'ph ph-gear' });
+          return items;
         },
-        computed: {
-            myTickets() {
-                return this.tickets.filter(t => t.requesterEmail.toLowerCase() === this.currentUserEmail.toLowerCase());
-            },
-            filteredTickets() {
-                return this.tickets;
-            },
-            totalResolutionMinutes() {
-                return this.filteredTickets.reduce((sum, t) => sum + (t.resolutionTimeMinutes || 0), 0);
-            }
+        filteredTickets() {
+          const q = this.ticketQuery.trim().toLowerCase();
+          return this.tickets.filter((t) => {
+            if (this.filterEstado && t.Estado !== this.filterEstado) return false;
+            if (this.filterEtapa && t.Etapa !== this.filterEtapa) return false;
+            if (!q) return true;
+            return [t.Titulo, t.Lugar, t.SolicitanteNombre, t.SolicitanteEmail].some((v) => (v || '').toLowerCase().includes(q));
+          }).slice().sort((a, b) => (b.FechaCreacion || '').localeCompare(a.FechaCreacion || ''));
         },
-        async mounted() {
-            await this.initGoogleAuth();
+        reportTickets() {
+          return this.tickets.filter((t) => {
+            const fecha = (t.FechaCreacion || '').slice(0, 10);
+            if (this.reportFrom && fecha < this.reportFrom) return false;
+            if (this.reportTo && fecha > this.reportTo) return false;
+            return true;
+          }).slice().sort((a, b) => (b.FechaCreacion || '').localeCompare(a.FechaCreacion || ''));
         },
-        methods: {
-            formatDate(isoStr) {
-                if (!isoStr) return '';
-                return new Date(isoStr).toLocaleString('es-ES');
-            },
-            getStatusBadgeClass(status) {
-                if (status === 'Pendiente') return 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
-                if (status === 'En Proceso') return 'bg-blue-500/20 text-blue-300 border border-blue-500/40';
-                if (status === 'Resuelto') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
-                return 'bg-slate-800 text-slate-400 border border-slate-700';
-            },
-            countStatus(status) {
-                return this.filteredTickets.filter(t => t.status === status).length;
-            },
-            parseJwt(token) {
-                try {
-                    return JSON.parse(atob(token.split('.')[1]));
-                } catch (e) { return null; }
-            },
-            async initGoogleAuth() {
-                const saved = localStorage.getItem('sc_tic_token');
-                if (saved) {
-                    const payload = this.parseJwt(saved);
-                    if (payload && payload.email && payload.email.endsWith('@' + this.institutionalDomain)) {
-                        this.currentUserEmail = payload.email.toLowerCase();
-                        this.isAuthenticated = true;
-                        this.isAdmin = this.currentUserEmail.startsWith('tic@') || this.currentUserEmail.startsWith('fp@');
-                        if (this.isAdmin) this.currentView = 'tic';
-                        await this.loadData();
-                        return;
-                    }
-                }
-                await this.$nextTick();
-                this.renderGoogleBtn();
-            },
-            renderGoogleBtn() {
-                if (!this.$refs.googleLoginBtn || !window.google) return;
-                window.google.accounts.id.initialize({
-                    client_id: this.googleClientId,
-                    callback: async (res) => {
-                        const payload = this.parseJwt(res.credential);
-                        if (payload && payload.email && payload.email.endsWith('@' + this.institutionalDomain)) {
-                            localStorage.setItem('sc_tic_token', res.credential);
-                            this.currentUserEmail = payload.email.toLowerCase();
-                            this.isAuthenticated = true;
-                            this.isAdmin = this.currentUserEmail.startsWith('tic@') || this.currentUserEmail.startsWith('fp@');
-                            if (this.isAdmin) this.currentView = 'tic';
-                            await this.loadData();
-                        } else {
-                            this.authError = 'Debes acceder con tu cuenta corporativa @' + this.institutionalDomain;
-                        }
-                    }
-                });
-                window.google.accounts.id.renderButton(this.$refs.googleLoginBtn, {
-                    theme: 'filled_black', size: 'large', width: 320
-                });
-            },
-            logoutSession() {
-                localStorage.removeItem('sc_tic_token');
-                this.isAuthenticated = false;
-                this.currentUserEmail = '';
-                this.$nextTick(() => this.renderGoogleBtn());
-            },
-            async loadData() {
-                try {
-                    const token = localStorage.getItem('sc_tic_token');
-                    const url = `${URL_DEL_SCRIPT}?idToken=${encodeURIComponent(token)}&year=${encodeURIComponent(this.selectedYear)}`;
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    
-                    if (json.success) {
-                        this.tickets = json.tickets || [];
-                        if (json.configGlobal) {
-                            this.configGlobal = json.configGlobal;
-                            if (!json.selectedYear) this.selectedYear = this.configGlobal.activeYear;
-                            this.allowedTeachersRaw = (this.configGlobal.allowedTeachers || []).join('\n');
-                        }
-                    } else {
-                        this.authError = json.error || 'Error al autorizar la sesión.';
-                        if (json.error && json.error.includes('no autorizado')) {
-                            this.isAuthenticated = false;
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error cargando datos:', e);
-                }
-            },
-            async loadDataForSelectedYear() {
-                await this.loadData();
-            },
-            async submitTicket() {
-                this.isSubmitting = true;
-                try {
-                    const token = localStorage.getItem('sc_tic_token');
-                    
-                    // Petición POST segura compatible con Apps Script sin preflight CORS
-                    const res = await fetch(URL_DEL_SCRIPT, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            idToken: token,
-                            action: 'create_ticket',
-                            ticket: { ...this.newTicket }
-                        })
-                    });
-                    
-                    const json = await res.json();
-                    if (json.success) {
-                        this.tickets = json.tickets;
-                        this.newTicket = { stage: 'ESO', location: '', title: '', description: '' };
-                        alert('Aviso TIC enviado correctamente.');
-                    } else {
-                        alert('Atención: ' + json.error);
-                    }
-                } catch (e) {
-                    alert('Error en la comunicación con el servidor. Comprueba la URL_DEL_SCRIPT o el estado del despliegue en Google Apps Script.');
-                } finally {
-                    this.isSubmitting = false;
-                }
-            },
-            async saveTicketChanges(ticket) {
-                try {
-                    const token = localStorage.getItem('sc_tic_token');
-                    await fetch(URL_DEL_SCRIPT, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            idToken: token,
-                            action: 'update_ticket',
-                            year: this.selectedYear,
-                            ticket: ticket
-                        })
-                    });
-                } catch (e) {
-                    console.error('Error al guardar aviso:', e);
-                }
-            },
-            async sendNotificationMail(ticket) {
-                if (!confirm(`¿Enviar notificación de estado a ${ticket.requesterEmail} y a Dirección?`)) return;
-                try {
-                    const token = localStorage.getItem('sc_tic_token');
-                    const res = await fetch(URL_DEL_SCRIPT, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            idToken: token,
-                            action: 'notify_status_update',
-                            ticket: ticket
-                        })
-                    });
-                    const json = await res.json();
-                    if (json.success) alert('Notificación por correo enviada con éxito.');
-                    else alert('Error: ' + json.error);
-                } catch (e) {
-                    alert('Error al enviar la notificación.');
-                }
-            },
-            addNewYear() {
-                const val = (this.newYearInput || '').trim();
-                if (!val) return;
-                if (!this.configGlobal.years.includes(val)) {
-                    this.configGlobal.years.push(val);
-                }
-                this.configGlobal.activeYear = val;
-                this.newYearInput = '';
-            },
-            async saveGlobalConfig() {
-                this.isSavingConfig = true;
-                try {
-                    const token = localStorage.getItem('sc_tic_token');
-                    
-                    // Convertir texto de docentes a array
-                    const teacherList = this.allowedTeachersRaw
-                        .split(/[\n,]+/)
-                        .map(s => s.trim().toLowerCase())
-                        .filter(s => s.length > 0);
-
-                    this.configGlobal.allowedTeachers = teacherList;
-
-                    const res = await fetch(URL_DEL_SCRIPT, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            idToken: token,
-                            action: 'save_global_config',
-                            configGlobal: this.configGlobal
-                        })
-                    });
-
-                    const json = await res.json();
-                    if (json.success) {
-                        alert('Configuración guardada correctamente.');
-                    } else {
-                        alert('Error: ' + json.error);
-                    }
-                } catch (e) {
-                    alert('Error al guardar la configuración global.');
-                } finally {
-                    this.isSavingConfig = false;
-                }
-            },
-            exportReportCsv() {
-                const rows = this.filteredTickets;
-                if (rows.length === 0) {
-                    alert('No hay datos en este curso para exportar.');
-                    return;
-                }
-                const headers = ['ID', 'Fecha', 'Curso', 'Etapa', 'Lugar', 'Solicitante', 'Asunto', 'Estado', 'Imputable TIC', 'Minutos', 'Notas'];
-                const csvLines = [headers.join(',')];
-
-                rows.forEach(t => {
-                    const line = [
-                        `"${t.id}"`,
-                        `"${this.formatDate(t.createdAt)}"`,
-                        `"${t.academicYear || this.selectedYear}"`,
-                        `"${t.stage}"`,
-                        `"${t.location.replace(/"/g, '""')}"`,
-                        `"${t.requesterEmail}"`,
-                        `"${t.title.replace(/"/g, '""')}"`,
-                        `"${t.status}"`,
-                        `"${t.isTicResponsibility ? 'Sí' : 'No'}"`,
-                        `"${t.resolutionTimeMinutes || 0}"`,
-                        `"${(t.resolutionNotes || '').replace(/"/g, '""')}"`
-                    ];
-                    csvLines.push(line.join(','));
-                });
-
-                const blob = new Blob(['\ufeff' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `actuaciones_tic_${this.selectedYear}_${new Date().toISOString().slice(0, 10)}.csv`;
-                a.click();
-            }
+        reportStats() {
+          const stats = { total: 0, infantil_primaria_eso: 0, fp: 0, otros: 0, responsabilidadTic: 0 };
+          this.reportTickets.forEach((t) => {
+            stats.total += 1;
+            if (stats[t.Etapa] !== undefined) stats[t.Etapa] += 1;
+            if (t.ResponsabilidadTIC) stats.responsabilidadTic += 1;
+          });
+          return stats;
         }
+      },
+      async mounted() {
+        await this.initializeInstitutionalAccess();
+        if (!this.isAuthenticated) return;
+        await this.refreshSnapshot();
+      },
+      methods: {
+        normalizeEmail(value) { return (value || '').toString().trim().replace(/^"|"$/g, '').toLowerCase(); },
+        showToast(type, message, timeoutMs = 7000, sticky) {
+          if (this.toastTimer) { clearTimeout(this.toastTimer); this.toastTimer = null; }
+          this.toast = { show: true, type, message, sticky: !!sticky };
+          const keepOpen = (sticky === true) || type === 'error';
+          if (!keepOpen) this.toastTimer = setTimeout(() => { this.toast.show = false; }, timeoutMs);
+        },
+        async runBusy(label, fn) {
+          this.busy = { active: true, label };
+          try { return await fn(); } finally { this.busy = { active: false, label: '' }; }
+        },
+        etapaLabel(value) { const e = this.etapas.find((x) => x.value === value); return e ? e.label : value; },
+        estadoLabel(value) { const e = this.estados.find((x) => x.value === value); return e ? e.label : value; },
+        formatFecha(iso) { if (!iso) return '-'; try { return new Date(iso).toLocaleString('es-ES'); } catch (err) { return iso; } },
+        resolutionTime(t) {
+          if (!t.FechaResolucion || !t.FechaCreacion) return '-';
+          const ms = new Date(t.FechaResolucion) - new Date(t.FechaCreacion);
+          if (isNaN(ms) || ms < 0) return '-';
+          const horas = ms / 3600000;
+          if (horas < 24) return `${horas.toFixed(1)} h`;
+          return `${(horas / 24).toFixed(1)} días`;
+        },
+
+        // ---------- AUTENTICACION INSTITUCIONAL ----------
+        parseJwtPayload(token) {
+          try {
+            const parts = (token || '').split('.');
+            if (parts.length < 2) return null;
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const json = decodeURIComponent(atob(base64).split('').map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`).join(''));
+            return JSON.parse(json);
+          } catch (err) { return null; }
+        },
+        validateInstitutionalCredential(credential) {
+          const payload = this.parseJwtPayload(credential);
+          if (!payload) return { valid: false, reason: 'No se pudo validar el token de autenticación.' };
+          const email = this.normalizeEmail(payload.email);
+          const verified = !!payload.email_verified;
+          const domainOk = email.endsWith(`@${this.institutionalDomain}`);
+          const hd = (payload.hd || '').toLowerCase();
+          const hostedDomainOk = !hd || hd === this.institutionalDomain;
+          if (!verified || !domainOk || !hostedDomainOk) return { valid: false, reason: `Acceso denegado. Usa una cuenta @${this.institutionalDomain}.` };
+          return { valid: true, email };
+        },
+        getStoredIdToken() { return localStorage.getItem('tic_id_token') || ''; },
+        saveStoredIdToken(token) { localStorage.setItem('tic_id_token', token || ''); },
+        clearStoredIdToken() { localStorage.removeItem('tic_id_token'); },
+        getGoogleIdentityScript() { return document.getElementById('google-identity-services'); },
+        loadGoogleIdentityScript(timeoutMs = 15000) {
+          return new Promise((resolve) => {
+            if (window.google && window.google.accounts && window.google.accounts.id) { resolve(true); return; }
+            const existing = this.getGoogleIdentityScript();
+            if (existing) existing.remove();
+            const script = document.createElement('script');
+            script.id = 'google-identity-services';
+            script.src = `https://accounts.google.com/gsi/client?ts=${Date.now()}`;
+            script.async = true; script.defer = true;
+            let resolved = false;
+            const finish = (ok) => { if (resolved) return; resolved = true; script.onload = null; script.onerror = null; resolve(ok); };
+            const timer = setTimeout(() => finish(false), timeoutMs);
+            script.onload = () => { clearTimeout(timer); finish(!!(window.google && window.google.accounts && window.google.accounts.id)); };
+            script.onerror = () => { clearTimeout(timer); finish(false); };
+            document.head.appendChild(script);
+          });
+        },
+        async ensureGoogleLoginReady() {
+          this.isLoadingAuth = true; this.authError = '';
+          let loaded = !!(window.google && window.google.accounts && window.google.accounts.id);
+          if (!loaded) loaded = await this.loadGoogleIdentityScript();
+          this.isLoadingAuth = false;
+          if (!loaded) { this.authError = 'No se pudo cargar Google Identity Services. Revisa tu conexión.'; return false; }
+          await this.$nextTick();
+          this.renderGoogleLoginButton();
+          return true;
+        },
+        renderGoogleLoginButton() {
+          if (!this.$refs.googleLoginBtn || !window.google || !window.google.accounts || !window.google.accounts.id) return;
+          this.$refs.googleLoginBtn.innerHTML = '';
+          window.google.accounts.id.initialize({
+            client_id: this.googleClientId, callback: this.handleGoogleCredentialResponse,
+            auto_select: false, cancel_on_tap_outside: true, ux_mode: 'popup'
+          });
+          window.google.accounts.id.renderButton(this.$refs.googleLoginBtn, { type: 'standard', theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: 320 });
+        },
+        async initializeInstitutionalAccess() {
+          if (!this.googleClientId || this.googleClientId.includes('PON_AQUI_TU_GOOGLE_CLIENT_ID')) {
+            this.authError = 'Configura el Google Client ID.'; return;
+          }
+          const token = this.getStoredIdToken();
+          if (token) {
+            const check = this.validateInstitutionalCredential(token);
+            if (check.valid) { this.currentUserEmail = check.email; this.isAuthenticated = true; return; }
+            this.clearStoredIdToken();
+          }
+          await this.ensureGoogleLoginReady();
+        },
+        async handleGoogleCredentialResponse(response) {
+          const credential = response && response.credential ? response.credential : '';
+          const check = this.validateInstitutionalCredential(credential);
+          if (!check.valid) {
+            this.authError = check.reason; this.isAuthenticated = false; this.currentUserEmail = ''; this.clearStoredIdToken(); return;
+          }
+          this.saveStoredIdToken(credential);
+          this.currentUserEmail = check.email;
+          this.isAuthenticated = true;
+          this.authError = '';
+          this.ticketForm.SolicitanteNombre = this.ticketForm.SolicitanteNombre || check.email.split('@')[0];
+          await this.refreshSnapshot();
+        },
+        async logoutInstitutionalSession() {
+          this.isAuthenticated = false; this.currentUserEmail = ''; this.isAdmin = false; this.clearStoredIdToken();
+          if (window.google && window.google.accounts && window.google.accounts.id) window.google.accounts.id.disableAutoSelect();
+          await this.ensureGoogleLoginReady();
+        },
+        mapServerAuthError(code) {
+          if (code === 'EMAIL_NOT_ALLOWED') return 'Tu cuenta no tiene permiso para usar esta aplicación.';
+          if (code === 'TOKEN_REQUIRED') return 'Sesión caducada. Inicia sesión de nuevo.';
+          if (code === 'INVALID_TOKEN' || code === 'TOKENINFO_HTTP_400') return 'Token inválido. Vuelve a iniciar sesión.';
+          if (code === 'INVALID_DOMAIN' || code === 'INVALID_HOSTED_DOMAIN') return `Usa una cuenta @${this.institutionalDomain}.`;
+          return 'No se pudo validar tu acceso.';
+        },
+        async postToServer(action, payload = {}) {
+          if (!this.isUrlConfigured) throw new Error('URL_SCRIPT_NOT_CONFIGURED');
+          const idToken = this.getStoredIdToken();
+          const response = await fetch(this.driveUrl, {
+            method: 'POST', mode: 'cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, payload, idToken, t: Date.now() })
+          });
+          const text = await response.text();
+          let data;
+          try { data = JSON.parse(text || '{}'); } catch (err) { throw new Error(`NON_JSON_${response.status}`); }
+          if (!data.success) throw new Error(data.error || 'SERVER_ERROR');
+          return data;
+        },
+        async handleAuthFailure(code) {
+          if (['EMAIL_NOT_ALLOWED', 'TOKEN_REQUIRED', 'INVALID_TOKEN', 'TOKENINFO_HTTP_400', 'INVALID_DOMAIN', 'INVALID_HOSTED_DOMAIN'].includes(code)) {
+            this.authError = this.mapServerAuthError(code);
+            await this.logoutInstitutionalSession();
+            return true;
+          }
+          return false;
+        },
+        async refreshSnapshot() {
+          if (!this.isAuthenticated) return;
+          this.lastSyncError = '';
+          await this.runBusy('Cargando datos...', async () => {
+            try {
+              const data = await this.postToServer('read', { cursoAcademicoId: this.selectedCursoAcademicoId });
+              this.tickets = Array.isArray(data.tickets) ? data.tickets : [];
+              this.etapas = Array.isArray(data.etapas) ? data.etapas : [];
+              this.etapaEmails = data.etapaEmails || {};
+              this.cursosAcademicos = Array.isArray(data.cursosAcademicos) ? data.cursosAcademicos : [];
+              this.activeCursoAcademicoId = data.activeCursoAcademicoId || '';
+              this.selectedCursoAcademicoId = data.selectedCursoAcademicoId || this.activeCursoAcademicoId;
+              this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
+              this.isAdmin = !!(data.user && data.user.isAdmin);
+              if (!this.isAdmin && this.activeTab !== 'nuevo' && this.activeTab !== 'avisos') this.activeTab = 'nuevo';
+              this.showToast('success', 'Datos actualizados correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'READ_FAILED';
+              this.lastSyncError = `Fallo cargando datos: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+
+        // ---------- CREACION DE AVISOS ----------
+        async sendTicket() {
+          if (!this.ticketForm.Titulo || !this.ticketForm.Descripcion) { this.showToast('error', 'Indica al menos un título y una descripción.'); return; }
+          if (!this.ticketForm.Etapa) { this.showToast('error', 'Selecciona la etapa.'); return; }
+          await this.runBusy('Enviando aviso...', async () => {
+            try {
+              const data = await this.postToServer('create_ticket', this.ticketForm);
+              this.tickets.push(data.ticket);
+              this.ticketForm = { Titulo: '', SolicitanteNombre: this.ticketForm.SolicitanteNombre, Etapa: '', Lugar: '', Categoria: '', Descripcion: '' };
+              this.showToast('success', 'Aviso enviado correctamente. El TIC ha sido notificado.');
+              this.activeTab = 'avisos';
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo enviando el aviso: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+
+        // ---------- DETALLE / EDICION DE AVISOS ----------
+        openTicketDetail(t) {
+          this.selectedTicket = t;
+          this.ticketEditForm = { Estado: t.Estado, ResponsabilidadTIC: !!t.ResponsabilidadTIC, Comentario: '' };
+        },
+        async saveTicketChanges() {
+          if (!this.selectedTicket) return;
+          await this.runBusy('Guardando cambios...', async () => {
+            try {
+              const data = await this.postToServer('update_ticket', {
+                id: this.selectedTicket.id,
+                cursoAcademicoId: this.selectedCursoAcademicoId,
+                Estado: this.ticketEditForm.Estado,
+                ResponsabilidadTIC: this.ticketEditForm.ResponsabilidadTIC,
+                Comentario: this.ticketEditForm.Comentario
+              });
+              const idx = this.tickets.findIndex((t) => t.id === data.ticket.id);
+              if (idx >= 0) this.tickets[idx] = data.ticket;
+              this.selectedTicket = data.ticket;
+              this.ticketEditForm.Comentario = '';
+              this.showToast('success', 'Aviso actualizado correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo guardando cambios: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+        async notifyTicketStatus() {
+          if (!this.selectedTicket) return;
+          await this.runBusy('Enviando notificación por email...', async () => {
+            try {
+              const data = await this.postToServer('notify_ticket', { id: this.selectedTicket.id, cursoAcademicoId: this.selectedCursoAcademicoId });
+              const idx = this.tickets.findIndex((t) => t.id === data.ticket.id);
+              if (idx >= 0) this.tickets[idx] = data.ticket;
+              this.selectedTicket = data.ticket;
+              this.showToast('success', 'Notificación enviada correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo enviando la notificación: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+        async removeTicket() {
+          if (!this.selectedTicket) return;
+          if (!confirm(`¿Eliminar el aviso "${this.selectedTicket.Titulo}"?`)) return;
+          await this.runBusy('Eliminando aviso...', async () => {
+            try {
+              await this.postToServer('delete_ticket', { id: this.selectedTicket.id, cursoAcademicoId: this.selectedCursoAcademicoId });
+              this.tickets = this.tickets.filter((t) => t.id !== this.selectedTicket.id);
+              this.selectedTicket = null;
+              this.showToast('success', 'Aviso eliminado.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo eliminando el aviso: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+
+        // ---------- INFORMES ----------
+        exportReportCsv() {
+          const headers = ['Titulo', 'Etapa', 'Lugar', 'Categoria', 'Solicitante', 'Email', 'Estado', 'ResponsabilidadTIC', 'FechaCreacion', 'FechaResolucion', 'TiempoResolucion'];
+          const rows = this.reportTickets.map((t) => [
+            t.Titulo, this.etapaLabel(t.Etapa), t.Lugar || '', t.Categoria || '', t.SolicitanteNombre || '', t.SolicitanteEmail || '',
+            this.estadoLabel(t.Estado), t.ResponsabilidadTIC ? 'Si' : 'No', t.FechaCreacion || '', t.FechaResolucion || '', this.resolutionTime(t)
+          ]);
+          const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+          const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `informe_tic_${this.reportFrom || 'inicio'}_${this.reportTo || 'fin'}.csv`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        },
+
+        // ---------- ADMINISTRACION ----------
+        async saveCursoAcademico() {
+          if (!this.cursoAcademicoForm.Nombre_Curso) { this.showToast('error', 'Indica un nombre para el curso académico.'); return; }
+          await this.runBusy('Guardando curso académico...', async () => {
+            try {
+              const data = await this.postToServer('upsert_curso_academico', this.cursoAcademicoForm);
+              this.cursosAcademicos = data.cursosAcademicos;
+              this.activeCursoAcademicoId = data.activeCursoAcademicoId;
+              this.cursoAcademicoForm = { Nombre_Curso: '' };
+              this.showToast('success', 'Curso académico guardado correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo guardando el curso académico: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async setCursoActivo(c) {
+          await this.runBusy('Actualizando curso activo...', async () => {
+            try {
+              const data = await this.postToServer('set_curso_academico_activo', { id: c.id });
+              this.activeCursoAcademicoId = data.activeCursoAcademicoId;
+              this.showToast('success', `"${c.Nombre_Curso}" marcado como curso activo.`);
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo actualizando el curso activo: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async addAllowedTeacher() {
+          const email = this.normalizeEmail(this.newAllowedEmail);
+          if (!email || !email.endsWith(`@${this.institutionalDomain}`)) { this.showToast('error', `El correo debe pertenecer al dominio @${this.institutionalDomain}.`); return; }
+          const emails = Array.from(new Set([...this.accessControl.allowedEmails, email]));
+          await this.saveAllowedTeachers(emails);
+          this.newAllowedEmail = '';
+        },
+        async removeAllowedTeacher(email) {
+          const emails = this.accessControl.allowedEmails.filter((e) => e !== email);
+          await this.saveAllowedTeachers(emails);
+        },
+        async saveAllowedTeachers(emails) {
+          await this.runBusy('Actualizando docentes autorizados...', async () => {
+            try {
+              const data = await this.postToServer('set_allowed_teachers', { emails });
+              this.accessControl = data.accessControl;
+              this.showToast('success', 'Lista de docentes autorizados actualizada.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo actualizando docentes autorizados: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
+        async addEtapaEmail(etapa) {
+          const email = this.normalizeEmail(this.newEtapaEmail[etapa]);
+          if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.showToast('error', 'Indica un correo válido.'); return; }
+          const emails = Array.from(new Set([...(this.etapaEmails[etapa] || []), email]));
+          await this.saveEtapaEmails(etapa, emails);
+          this.newEtapaEmail[etapa] = '';
+        },
+        async removeEtapaEmail(etapa, email) {
+          const emails = (this.etapaEmails[etapa] || []).filter((e) => e !== email);
+          await this.saveEtapaEmails(etapa, emails);
+        },
+        async saveEtapaEmails(etapa, emails) {
+          await this.runBusy('Actualizando correos de dirección...', async () => {
+            try {
+              const data = await this.postToServer('set_etapa_emails', { etapa, emails });
+              this.etapaEmails = data.etapaEmails;
+              this.showToast('success', 'Correos de dirección actualizados.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo actualizando los correos de dirección: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        }
+      }
     }).mount('#app');
-</script>
+  </script>
 </body>
 </html>
