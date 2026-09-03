@@ -359,6 +359,22 @@
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-3">Administradores / cuenta TIC</h2>
+          <p class="text-xs text-slate-400 mb-3">Estas cuentas pueden gestionar todos los avisos, informes y la configuración. La cuenta TIC protegida no se puede eliminar.</p>
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <input v-model="newAdminEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
+            <button @click="addAdminEmail" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span v-for="email in accessControl.adminEmails" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+              <i v-if="isFixedAdmin(email)" class="ph ph-lock text-amber-400"></i>
+              {{ email }}
+              <button v-if="!isFixedAdmin(email)" @click="removeAdminEmail(email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
+            </span>
+          </div>
+        </div>
+
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h2 class="font-black text-lg text-white mb-3">Docentes autorizados</h2>
           <div class="flex flex-wrap items-center gap-2 mb-3">
             <input v-model="newAllowedEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
@@ -430,9 +446,10 @@
           toastTimer: null,
 
           isAdmin: false,
-          accessControl: { adminEmails: [], allowedEmails: [] },
+          accessControl: { adminEmails: [], allowedEmails: [], fixedAdminEmails: [] },
           newAllowedEmail: '',
           bulkAllowedEmailsText: '',
+          newAdminEmail: '',
 
           activeTab: 'nuevo',
           tickets: [],
@@ -670,9 +687,13 @@
               this.cursosAcademicos = Array.isArray(data.cursosAcademicos) ? data.cursosAcademicos : [];
               this.activeCursoAcademicoId = data.activeCursoAcademicoId || '';
               this.selectedCursoAcademicoId = data.selectedCursoAcademicoId || this.activeCursoAcademicoId;
-              this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [] };
+              this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [], fixedAdminEmails: [] };
               this.isAdmin = !!(data.user && data.user.isAdmin);
-              if (!this.isAdmin && this.activeTab !== 'nuevo' && this.activeTab !== 'avisos') this.activeTab = 'nuevo';
+              if (this.isAdmin) {
+                if (this.activeTab === 'nuevo') this.activeTab = 'avisos';
+              } else if (this.activeTab !== 'nuevo' && this.activeTab !== 'avisos') {
+                this.activeTab = 'nuevo';
+              }
               this.showToast('success', 'Datos actualizados correctamente.');
             } catch (err) {
               const code = (err && err.message) ? err.message : 'READ_FAILED';
@@ -825,6 +846,32 @@
         async removeAllowedTeacher(email) {
           const emails = this.accessControl.allowedEmails.filter((e) => e !== email);
           await this.saveAllowedTeachers(emails);
+        },
+        isFixedAdmin(email) { return (this.accessControl.fixedAdminEmails || []).includes(email); },
+        async addAdminEmail() {
+          const email = this.normalizeEmail(this.newAdminEmail);
+          if (!email || !email.endsWith(`@${this.institutionalDomain}`)) { this.showToast('error', `El correo debe pertenecer al dominio @${this.institutionalDomain}.`); return; }
+          const emails = Array.from(new Set([...this.accessControl.adminEmails, email]));
+          await this.saveAdminEmails(emails);
+          this.newAdminEmail = '';
+        },
+        async removeAdminEmail(email) {
+          if (this.isFixedAdmin(email)) { this.showToast('error', 'La cuenta TIC protegida no se puede eliminar.'); return; }
+          const emails = this.accessControl.adminEmails.filter((e) => e !== email);
+          await this.saveAdminEmails(emails);
+        },
+        async saveAdminEmails(emails) {
+          await this.runBusy('Actualizando administradores...', async () => {
+            try {
+              const data = await this.postToServer('set_admin_emails', { emails });
+              this.accessControl = data.accessControl;
+              this.showToast('success', 'Lista de administradores actualizada.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo actualizando administradores: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
         },
         parseEmailListText(text) {
           return (text || '').split(/[\s,;]+/).map((v) => this.normalizeEmail(v)).filter((v) => !!v && v.endsWith(`@${this.institutionalDomain}`));
