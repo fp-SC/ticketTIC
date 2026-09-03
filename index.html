@@ -230,6 +230,7 @@
             <div><span class="field-label">Categoría</span><div>{{ selectedTicket.Categoria || '-' }}</div></div>
             <div><span class="field-label">Solicitante</span><div>{{ selectedTicket.SolicitanteNombre }} ({{ selectedTicket.SolicitanteEmail }})</div></div>
             <div class="md:col-span-2"><span class="field-label">Descripción</span><div class="whitespace-pre-line">{{ selectedTicket.Descripcion }}</div></div>
+            <div v-if="!isAdmin && selectedTicket.Observaciones" class="md:col-span-2"><span class="field-label">Observaciones del TIC</span><div class="whitespace-pre-line">{{ selectedTicket.Observaciones }}</div></div>
           </div>
 
           <div v-if="isAdmin" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3 mb-3">
@@ -247,8 +248,16 @@
               </select>
             </div>
             <div>
-              <span class="field-label">Comentario (opcional)</span>
+              <span class="field-label">Comentario de historial (opcional)</span>
               <input v-model="ticketEditForm.Comentario" class="field" />
+            </div>
+            <div class="md:col-span-3">
+              <span class="field-label">Cómo se ha solucionado (interno, no se envía por email)</span>
+              <textarea v-model="ticketEditForm.SolucionInterna" rows="2" class="field"></textarea>
+            </div>
+            <div class="md:col-span-3">
+              <span class="field-label">Observaciones para el solicitante (se enviará por email al notificar)</span>
+              <textarea v-model="ticketEditForm.Observaciones" rows="2" class="field"></textarea>
             </div>
             <div class="md:col-span-3 flex flex-wrap gap-2 justify-end pt-1">
               <button @click="saveTicketChanges" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition">
@@ -355,12 +364,25 @@
             <input v-model="newAllowedEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
             <button @click="addAllowedTeacher" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2 mb-3">
             <span v-for="email in accessControl.allowedEmails" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
               {{ email }}
               <button @click="removeAllowedTeacher(email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
             </span>
             <span v-if="accessControl.allowedEmails.length === 0" class="text-xs text-slate-400">No hay docentes autorizados todavía.</span>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800">
+            <span class="field-label">Importación masiva (CSV o correos separados por comas/saltos de línea)</span>
+            <textarea v-model="bulkAllowedEmailsText" rows="3" placeholder="correo1@sagrado-corazon.es, correo2@sagrado-corazon.es, ..." class="field mb-2"></textarea>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-500/50 text-xs font-bold shadow-sm cursor-pointer transition">
+                <i class="ph ph-upload-simple text-base text-indigo-400"></i>
+                <span>Subir CSV</span>
+                <input type="file" accept=".csv,text/csv,.txt" class="hidden" @change="importAllowedEmailsFromFile" />
+              </label>
+              <button @click="addBulkAllowedTeachers" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir todos</button>
+            </div>
           </div>
         </div>
 
@@ -410,6 +432,7 @@
           isAdmin: false,
           accessControl: { adminEmails: [], allowedEmails: [] },
           newAllowedEmail: '',
+          bulkAllowedEmailsText: '',
 
           activeTab: 'nuevo',
           tickets: [],
@@ -438,7 +461,7 @@
           filterEstado: '',
           filterEtapa: '',
           selectedTicket: null,
-          ticketEditForm: { Estado: 'nuevo', ResponsabilidadTIC: false, Comentario: '' },
+          ticketEditForm: { Estado: 'nuevo', ResponsabilidadTIC: false, Comentario: '', SolucionInterna: '', Observaciones: '' },
 
           reportFrom: '',
           reportTo: ''
@@ -677,7 +700,7 @@
         // ---------- DETALLE / EDICION DE AVISOS ----------
         openTicketDetail(t) {
           this.selectedTicket = t;
-          this.ticketEditForm = { Estado: t.Estado, ResponsabilidadTIC: !!t.ResponsabilidadTIC, Comentario: '' };
+          this.ticketEditForm = { Estado: t.Estado, ResponsabilidadTIC: !!t.ResponsabilidadTIC, Comentario: '', SolucionInterna: t.SolucionInterna || '', Observaciones: t.Observaciones || '' };
         },
         async saveTicketChanges() {
           if (!this.selectedTicket) return;
@@ -688,7 +711,9 @@
                 cursoAcademicoId: this.selectedCursoAcademicoId,
                 Estado: this.ticketEditForm.Estado,
                 ResponsabilidadTIC: this.ticketEditForm.ResponsabilidadTIC,
-                Comentario: this.ticketEditForm.Comentario
+                Comentario: this.ticketEditForm.Comentario,
+                SolucionInterna: this.ticketEditForm.SolucionInterna,
+                Observaciones: this.ticketEditForm.Observaciones
               });
               const idx = this.tickets.findIndex((t) => t.id === data.ticket.id);
               if (idx >= 0) this.tickets[idx] = data.ticket;
@@ -794,6 +819,33 @@
         async removeAllowedTeacher(email) {
           const emails = this.accessControl.allowedEmails.filter((e) => e !== email);
           await this.saveAllowedTeachers(emails);
+        },
+        parseEmailListText(text) {
+          return (text || '').split(/[\s,;]+/).map((v) => this.normalizeEmail(v)).filter((v) => !!v && v.endsWith(`@${this.institutionalDomain}`));
+        },
+        async addBulkAllowedTeachers() {
+          const parsed = this.parseEmailListText(this.bulkAllowedEmailsText);
+          if (parsed.length === 0) { this.showToast('error', `No se encontró ningún correo válido del dominio @${this.institutionalDomain}.`); return; }
+          const emails = Array.from(new Set([...this.accessControl.allowedEmails, ...parsed]));
+          await this.saveAllowedTeachers(emails);
+          this.bulkAllowedEmailsText = '';
+          this.showToast('success', `${parsed.length} correo/s añadidos a la lista.`);
+        },
+        async importAllowedEmailsFromFile(event) {
+          const file = event && event.target && event.target.files ? event.target.files[0] : null;
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const parsed = this.parseEmailListText(text);
+            if (parsed.length === 0) { this.showToast('error', `El archivo no contiene correos válidos del dominio @${this.institutionalDomain}.`); return; }
+            const emails = Array.from(new Set([...this.accessControl.allowedEmails, ...parsed]));
+            await this.saveAllowedTeachers(emails);
+            this.showToast('success', `${parsed.length} correo/s importados desde el archivo.`);
+          } catch (err) {
+            this.showToast('error', 'No se pudo leer el archivo CSV.');
+          } finally {
+            if (event && event.target) event.target.value = '';
+          }
         },
         async saveAllowedTeachers(emails) {
           await this.runBusy('Actualizando docentes autorizados...', async () => {
