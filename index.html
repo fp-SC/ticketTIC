@@ -164,6 +164,47 @@
         </div>
       </section>
 
+      <!-- ================= NUEVA TAREA (TIC) ================= -->
+      <section v-if="activeTab === 'nueva_tarea' && isAdmin" class="space-y-4">
+        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
+          <h2 class="font-black text-lg text-white mb-1">Registrar una tarea del TIC</h2>
+          <p class="text-xs text-slate-400 mb-4">Para tareas propias que no vienen de un aviso del profesorado (altas de correo, aulas virtuales, mantenimiento...).</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div><span class="field-label">Título breve</span><input v-model="taskForm.Titulo" placeholder="Ej: Crear cuenta de correo nuevo profesor" class="field" /></div>
+            <div>
+              <span class="field-label">Estado inicial</span>
+              <select v-model="taskForm.Estado" class="field">
+                <option v-for="es in estados" :key="es.value" :value="es.value">{{ es.label }}</option>
+              </select>
+            </div>
+            <div>
+              <span class="field-label">Etapa (opcional)</span>
+              <select v-model="taskForm.Etapa" class="field">
+                <option value="">Sin especificar</option>
+                <option v-for="e in etapas" :key="e.value" :value="e.value">{{ e.label }}</option>
+              </select>
+            </div>
+            <div><span class="field-label">Lugar (opcional)</span><input v-model="taskForm.Lugar" class="field" /></div>
+            <div class="md:col-span-2">
+              <span class="field-label">Categoría</span>
+              <select v-model="taskForm.Categoria" class="field">
+                <option value="">Selecciona categoría</option>
+                <option v-for="c in categoriasTareas" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <div class="md:col-span-2"><span class="field-label">Descripción (opcional)</span><textarea v-model="taskForm.Descripcion" rows="3" class="field"></textarea></div>
+          </div>
+
+          <div class="mt-4 flex justify-end">
+            <button @click="sendTask" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-950/50 border border-blue-400/40 transition transform hover:-translate-y-0.5">
+              <i class="ph ph-clipboard-text text-base"></i>
+              <span>Registrar tarea</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- ================= MIS AVISOS (docentes) / TODOS LOS AVISOS (TIC) ================= -->
       <section v-if="activeTab === 'avisos'" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
@@ -179,6 +220,11 @@
                 <option value="">Todas las etapas</option>
                 <option v-for="e in etapas" :key="e.value" :value="e.value">{{ e.label }}</option>
               </select>
+              <select v-if="isAdmin" v-model="filterOrigen" class="px-3 py-2 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+                <option value="">Docentes y TIC</option>
+                <option value="docente">Solo avisos de docentes</option>
+                <option value="tic">Solo tareas del TIC</option>
+              </select>
             </div>
           </div>
 
@@ -187,6 +233,7 @@
               <thead class="bg-[#040914] text-slate-300">
                 <tr>
                   <th class="p-2 text-left">Título</th>
+                  <th v-if="isAdmin" class="p-2 text-left">Origen</th>
                   <th class="p-2 text-left">Etapa</th>
                   <th class="p-2 text-left">Lugar</th>
                   <th v-if="isAdmin" class="p-2 text-left">Solicitante</th>
@@ -199,6 +246,7 @@
               <tbody>
                 <tr v-for="t in filteredTickets" :key="t.id" class="border-t border-slate-800 align-top">
                   <td class="p-2 font-semibold">{{ t.Titulo }}<div class="text-slate-400 font-normal">{{ t.Categoria || '-' }}</div></td>
+                  <td v-if="isAdmin" class="p-2">{{ t.Origen === 'tic' ? 'Tarea TIC' : 'Docente' }}</td>
                   <td class="p-2">{{ etapaLabel(t.Etapa) }}</td>
                   <td class="p-2">{{ t.Lugar || '-' }}</td>
                   <td v-if="isAdmin" class="p-2">{{ t.SolicitanteNombre }}<div class="text-slate-500">{{ t.SolicitanteEmail }}</div></td>
@@ -212,7 +260,7 @@
                     </button>
                   </td>
                 </tr>
-                <tr v-if="filteredTickets.length === 0"><td :colspan="isAdmin ? 8 : 6" class="p-4 text-center text-slate-400">No hay avisos que mostrar.</td></tr>
+                <tr v-if="filteredTickets.length === 0"><td :colspan="isAdmin ? 9 : 6" class="p-4 text-center text-slate-400">No hay avisos que mostrar.</td></tr>
               </tbody>
             </table>
           </div>
@@ -225,6 +273,7 @@
             <button @click="selectedTicket = null" class="text-slate-400 hover:text-white"><i class="ph ph-x text-lg"></i></button>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
+            <div v-if="isAdmin"><span class="field-label">Origen</span><div>{{ selectedTicket.Origen === 'tic' ? 'Tarea creada por el TIC' : 'Aviso de docente' }}</div></div>
             <div><span class="field-label">Etapa</span><div>{{ etapaLabel(selectedTicket.Etapa) }}</div></div>
             <div><span class="field-label">Lugar</span><div>{{ selectedTicket.Lugar || '-' }}</div></div>
             <div><span class="field-label">Categoría</span><div>{{ selectedTicket.Categoria || '-' }}</div></div>
@@ -465,6 +514,10 @@
             'Hardware (equipo/dispositivo)', 'Software/Aplicaciones', 'Red / Internet / WiFi',
             'Impresora / Escáner', 'Proyector / Pizarra digital', 'Cuentas y accesos', 'Otro'
           ],
+          categoriasTareas: [
+            'Cuentas de correo', 'Aulas virtuales', 'Alta/baja de usuarios', 'Mantenimiento de equipos',
+            'Instalación de software', 'Otra tarea'
+          ],
           estados: [
             { value: 'nuevo', label: 'Nuevo' },
             { value: 'en_proceso', label: 'En proceso' },
@@ -477,8 +530,11 @@
           ticketQuery: '',
           filterEstado: '',
           filterEtapa: '',
+          filterOrigen: '',
           selectedTicket: null,
           ticketEditForm: { Estado: 'nuevo', ResponsabilidadTIC: false, Comentario: '', SolucionInterna: '', Observaciones: '' },
+
+          taskForm: { Titulo: '', Etapa: '', Lugar: '', Categoria: '', Descripcion: '', Estado: 'nuevo' },
 
           reportFrom: '',
           reportTo: ''
@@ -489,6 +545,7 @@
         navItems() {
           const items = [];
           if (!this.isAdmin) items.push({ key: 'nuevo', label: 'Nuevo aviso', icon: 'ph ph-plus-circle' });
+          if (this.isAdmin) items.push({ key: 'nueva_tarea', label: 'Nueva tarea', icon: 'ph ph-clipboard-text' });
           items.push({ key: 'avisos', label: this.isAdmin ? 'Todos los avisos' : 'Mis avisos', icon: 'ph ph-ticket' });
           if (this.isAdmin) items.push({ key: 'informes', label: 'Informes', icon: 'ph ph-chart-bar' });
           if (this.isAdmin) items.push({ key: 'admin', label: 'Administración', icon: 'ph ph-gear' });
@@ -499,6 +556,7 @@
           return this.tickets.filter((t) => {
             if (this.filterEstado && t.Estado !== this.filterEstado) return false;
             if (this.filterEtapa && t.Etapa !== this.filterEtapa) return false;
+            if (this.filterOrigen && (t.Origen || 'docente') !== this.filterOrigen) return false;
             if (!q) return true;
             return [t.Titulo, t.Lugar, t.SolicitanteNombre, t.SolicitanteEmail].some((v) => (v || '').toLowerCase().includes(q));
           }).slice().sort((a, b) => (b.FechaCreacion || '').localeCompare(a.FechaCreacion || ''));
@@ -718,6 +776,23 @@
             } catch (err) {
               const code = (err && err.message) ? err.message : 'ERROR';
               this.lastSyncError = `Fallo enviando el aviso: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+        async sendTask() {
+          if (!this.taskForm.Titulo) { this.showToast('error', 'Indica al menos un título para la tarea.'); return; }
+          await this.runBusy('Registrando tarea...', async () => {
+            try {
+              const data = await this.postToServer('create_task', this.taskForm);
+              this.tickets.push(data.ticket);
+              this.taskForm = { Titulo: '', Etapa: '', Lugar: '', Categoria: '', Descripcion: '', Estado: 'nuevo' };
+              this.showToast('success', 'Tarea registrada correctamente.');
+              this.activeTab = 'avisos';
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo registrando la tarea: ${code}`;
               this.showToast('error', this.lastSyncError);
               await this.handleAuthFailure(code);
             }
