@@ -279,13 +279,15 @@
             <div><span class="field-label">Categoría</span><div>{{ selectedTicket.Categoria || '-' }}</div></div>
             <div><span class="field-label">Solicitante</span><div>{{ selectedTicket.SolicitanteNombre }} ({{ selectedTicket.SolicitanteEmail }})</div></div>
             <div class="md:col-span-2"><span class="field-label">Descripción</span><div class="whitespace-pre-line">{{ selectedTicket.Descripcion }}</div></div>
+            <div v-if="selectedTicket.FechaResolucion"><span class="field-label">Fecha de resolución</span><div>{{ formatFecha(selectedTicket.FechaResolucion) }}</div></div>
+            <div v-if="selectedTicket.TiempoInvertidoMinutos"><span class="field-label">Tiempo invertido</span><div>{{ formatMinutes(selectedTicket.TiempoInvertidoMinutos) }}</div></div>
             <div v-if="!isAdmin && selectedTicket.Observaciones" class="md:col-span-2"><span class="field-label">Observaciones del TIC</span><div class="whitespace-pre-line">{{ selectedTicket.Observaciones }}</div></div>
           </div>
 
           <div v-if="isAdmin" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm bg-[#040914] border border-slate-800 rounded-lg p-3 mb-3">
             <div>
               <span class="field-label">Estado</span>
-              <select v-model="ticketEditForm.Estado" class="field">
+              <select v-model="ticketEditForm.Estado" @change="onEstadoEditChange" class="field">
                 <option v-for="es in estados" :key="es.value" :value="es.value">{{ es.label }}</option>
               </select>
             </div>
@@ -299,6 +301,18 @@
             <div>
               <span class="field-label">Comentario de historial (opcional)</span>
               <input v-model="ticketEditForm.Comentario" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Fecha de resolución</span>
+              <input type="datetime-local" v-model="ticketEditForm.FechaResolucion" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Tiempo invertido: horas</span>
+              <input type="number" min="0" v-model.number="ticketEditForm.TiempoInvertidoHoras" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Tiempo invertido: minutos</span>
+              <input type="number" min="0" max="59" v-model.number="ticketEditForm.TiempoInvertidoMinutos" class="field" />
             </div>
             <div class="md:col-span-3">
               <span class="field-label">Cómo se ha solucionado (interno, no se envía por email)</span>
@@ -368,6 +382,7 @@
                   <th class="p-2 text-left">Creado</th>
                   <th class="p-2 text-left">Resuelto</th>
                   <th class="p-2 text-left">Tiempo resolución</th>
+                  <th class="p-2 text-left">Tiempo invertido</th>
                 </tr>
               </thead>
               <tbody>
@@ -381,8 +396,9 @@
                   <td class="p-2">{{ formatFecha(t.FechaCreacion) }}</td>
                   <td class="p-2">{{ t.FechaResolucion ? formatFecha(t.FechaResolucion) : '-' }}</td>
                   <td class="p-2">{{ resolutionTime(t) }}</td>
+                  <td class="p-2">{{ formatMinutes(t.TiempoInvertidoMinutos) }}</td>
                 </tr>
-                <tr v-if="reportTickets.length === 0"><td colspan="9" class="p-4 text-center text-slate-400">No hay avisos en el rango seleccionado.</td></tr>
+                <tr v-if="reportTickets.length === 0"><td colspan="10" class="p-4 text-center text-slate-400">No hay avisos en el rango seleccionado.</td></tr>
               </tbody>
             </table>
           </div>
@@ -474,7 +490,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/a/macros/sagrado-corazon.es/s/AKfycbzLYxuVp32ZEkRl1xaW0iIDXM3cFHW-EIxgQ9syX2BHq2ju87Tjvd0NRg_IRXPh1aXn/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycby_wfGLuzHPA8i7Hl82MdIP3p_DdFE_NwsWjGySTe6rzMrVoliAKTju4nc5MQgEeOcD/exec';
                             
     const { createApp } = Vue;
 
@@ -612,6 +628,30 @@
           if (horas > 0 || dias > 0) partes.push(`${horas} h`);
           partes.push(`${minutos} min`);
           return partes.join(' ');
+        },
+        formatMinutes(totalMinutosRaw) {
+          const totalMinutos = Math.max(0, Math.round(Number(totalMinutosRaw) || 0));
+          if (totalMinutos === 0) return '-';
+          const dias = Math.floor(totalMinutos / 1440);
+          const horas = Math.floor((totalMinutos % 1440) / 60);
+          const minutos = totalMinutos % 60;
+          const partes = [];
+          if (dias > 0) partes.push(`${dias} d`);
+          if (horas > 0 || dias > 0) partes.push(`${horas} h`);
+          partes.push(`${minutos} min`);
+          return partes.join(' ');
+        },
+        toDatetimeLocal(iso) {
+          if (!iso) return '';
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          const pad = (n) => String(n).padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        },
+        fromDatetimeLocal(value) {
+          if (!value) return '';
+          const d = new Date(value);
+          return isNaN(d.getTime()) ? '' : d.toISOString();
         },
 
         // ---------- AUTENTICACION INSTITUCIONAL ----------
@@ -802,12 +842,30 @@
         // ---------- DETALLE / EDICION DE AVISOS ----------
         openTicketDetail(t) {
           this.selectedTicket = t;
-          this.ticketEditForm = { Estado: t.Estado, ResponsabilidadTIC: !!t.ResponsabilidadTIC, Comentario: '', SolucionInterna: t.SolucionInterna || '', Observaciones: t.Observaciones || '' };
+          const minutos = t.TiempoInvertidoMinutos || 0;
+          this.ticketEditForm = {
+            Estado: t.Estado,
+            ResponsabilidadTIC: !!t.ResponsabilidadTIC,
+            Comentario: '',
+            SolucionInterna: t.SolucionInterna || '',
+            Observaciones: t.Observaciones || '',
+            FechaResolucion: this.toDatetimeLocal(t.FechaResolucion),
+            TiempoInvertidoHoras: Math.floor(minutos / 60),
+            TiempoInvertidoMinutos: minutos % 60
+          };
+        },
+        onEstadoEditChange() {
+          if ((this.ticketEditForm.Estado === 'resuelto' || this.ticketEditForm.Estado === 'cerrado')) {
+            if (!this.ticketEditForm.FechaResolucion) this.ticketEditForm.FechaResolucion = this.toDatetimeLocal(new Date().toISOString());
+          } else {
+            this.ticketEditForm.FechaResolucion = '';
+          }
         },
         async saveTicketChanges() {
           if (!this.selectedTicket) return;
           await this.runBusy('Guardando cambios...', async () => {
             try {
+              const totalMinutos = (Number(this.ticketEditForm.TiempoInvertidoHoras) || 0) * 60 + (Number(this.ticketEditForm.TiempoInvertidoMinutos) || 0);
               const data = await this.postToServer('update_ticket', {
                 id: this.selectedTicket.id,
                 cursoAcademicoId: this.selectedCursoAcademicoId,
@@ -815,7 +873,9 @@
                 ResponsabilidadTIC: this.ticketEditForm.ResponsabilidadTIC,
                 Comentario: this.ticketEditForm.Comentario,
                 SolucionInterna: this.ticketEditForm.SolucionInterna,
-                Observaciones: this.ticketEditForm.Observaciones
+                Observaciones: this.ticketEditForm.Observaciones,
+                FechaResolucion: this.fromDatetimeLocal(this.ticketEditForm.FechaResolucion),
+                TiempoInvertidoMinutos: totalMinutos
               });
               const idx = this.tickets.findIndex((t) => t.id === data.ticket.id);
               if (idx >= 0) this.tickets[idx] = data.ticket;
@@ -867,10 +927,10 @@
 
         // ---------- INFORMES ----------
         exportReportCsv() {
-          const headers = ['Titulo', 'Etapa', 'Lugar', 'Categoria', 'Solicitante', 'Email', 'Estado', 'ResponsabilidadTIC', 'FechaCreacion', 'FechaResolucion', 'TiempoResolucion'];
+          const headers = ['Titulo', 'Etapa', 'Lugar', 'Categoria', 'Solicitante', 'Email', 'Estado', 'ResponsabilidadTIC', 'FechaCreacion', 'FechaResolucion', 'TiempoResolucion', 'TiempoInvertidoMinutos'];
           const rows = this.reportTickets.map((t) => [
             t.Titulo, this.etapaLabel(t.Etapa), t.Lugar || '', t.Categoria || '', t.SolicitanteNombre || '', t.SolicitanteEmail || '',
-            this.estadoLabel(t.Estado), t.ResponsabilidadTIC ? 'Si' : 'No', t.FechaCreacion || '', t.FechaResolucion || '', this.resolutionTime(t)
+            this.estadoLabel(t.Estado), t.ResponsabilidadTIC ? 'Si' : 'No', t.FechaCreacion || '', t.FechaResolucion || '', this.resolutionTime(t), t.TiempoInvertidoMinutos || 0
           ]);
           const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
           const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
