@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
-  <title>Gestión de Incidencias TIC - Sagrado Corazón-CC</title>
+  <title>Gestión de Incidencias TIC - Sagrado Corazón</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -300,21 +299,52 @@
               </select>
             </div>
             <div>
-              <span class="field-label">Tiempo invertido (minutos)</span>
-              <input v-model.number="ticketEditForm.TiempoInvertidoMinutos" type="number" min="0" class="field" />
+              <span class="field-label">Comentario de historial (opcional)</span>
+              <input v-model="ticketEditForm.Comentario" class="field" />
             </div>
-            <div class="md:col-span-3"><span class="field-label">Solución / Resumen interno</span><textarea v-model="ticketEditForm.SolucionInterna" rows="2" placeholder="Detalles internos de la solución..." class="field"></textarea></div>
-            <div class="md:col-span-3"><span class="field-label">Observaciones para el docente</span><textarea v-model="ticketEditForm.Observaciones" rows="2" placeholder="Información para el solicitante..." class="field"></textarea></div>
-            <div class="md:col-span-3"><span class="field-label">Comentario para el historial</span><textarea v-model="ticketEditForm.Comentario" rows="2" placeholder="Qué has hecho o cambios realizados..." class="field"></textarea></div>
+            <div>
+              <span class="field-label">Fecha de resolución</span>
+              <input type="datetime-local" v-model="ticketEditForm.FechaResolucion" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Tiempo invertido: horas</span>
+              <input type="number" min="0" v-model.number="ticketEditForm.TiempoInvertidoHoras" class="field" />
+            </div>
+            <div>
+              <span class="field-label">Tiempo invertido: minutos</span>
+              <input type="number" min="0" max="59" v-model.number="ticketEditForm.TiempoInvertidoMinutos" class="field" />
+            </div>
+            <div class="md:col-span-3">
+              <span class="field-label">Cómo se ha solucionado (interno, no se envía por email)</span>
+              <textarea v-model="ticketEditForm.SolucionInterna" rows="2" class="field"></textarea>
+            </div>
+            <div class="md:col-span-3">
+              <span class="field-label">Observaciones para el solicitante (se enviará por email al notificar)</span>
+              <textarea v-model="ticketEditForm.Observaciones" rows="2" class="field"></textarea>
+            </div>
+            <div class="md:col-span-3 flex flex-wrap gap-2 justify-end pt-1">
+              <button @click="saveTicketChanges" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition">
+                <i class="ph ph-check text-base"></i><span>Guardar cambios</span>
+              </button>
+              <button @click="notifyTicketStatus" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold shadow-sm transition">
+                <i class="ph ph-envelope-simple text-base"></i><span>Notificar por email</span>
+              </button>
+              <button @click="removeTicket" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/80 hover:border-red-500 text-xs font-semibold transition">
+                <i class="ph ph-trash"></i><span>Eliminar</span>
+              </button>
+            </div>
           </div>
 
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <button v-if="isAdmin" @click="updateTicketDetail" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
-              <i class="ph ph-floppy-disk text-base"></i><span>Guardar cambios</span>
-            </button>
-            <button v-if="isAdmin" @click="deleteTicketDetail" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-950/40 hover:bg-red-900/50 text-red-300 hover:text-red-100 border border-red-800/50 text-xs font-bold transition">
-              <i class="ph ph-trash text-base"></i><span>Eliminar</span>
-            </button>
+          <div>
+            <span class="field-label">Historial</span>
+            <div class="space-y-1 mt-1">
+              <div v-for="(h, idx) in (selectedTicket.Historial || []).slice().reverse()" :key="idx" class="text-xs bg-[#040914] border border-slate-800 rounded-lg p-2">
+                <span class="font-semibold text-slate-200">{{ formatFecha(h.fecha) }}</span> ·
+                <span :class="'badge badge-' + h.estado">{{ estadoLabel(h.estado) }}</span>
+                <span class="text-slate-400"> — {{ h.autor }}</span>
+                <div v-if="h.comentario" class="text-slate-300 mt-0.5">{{ h.comentario }}</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -322,36 +352,21 @@
       <!-- ================= INFORMES (TIC) ================= -->
       <section v-if="activeTab === 'informes' && isAdmin" class="space-y-4">
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <h2 class="font-black text-lg text-white mb-3">Estadísticas</h2>
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
-            <div class="bg-[#040914] border border-slate-800 rounded-lg p-3">
-              <div class="text-slate-400">Total avisos</div>
-              <div class="text-2xl font-black text-blue-300">{{ reportStats.total }}</div>
-            </div>
-            <div class="bg-[#040914] border border-slate-800 rounded-lg p-3">
-              <div class="text-slate-400">Infantil/Primaria/ESO</div>
-              <div class="text-2xl font-black text-amber-300">{{ reportStats.infantil_primaria_eso }}</div>
-            </div>
-            <div class="bg-[#040914] border border-slate-800 rounded-lg p-3">
-              <div class="text-slate-400">Formación Profesional</div>
-              <div class="text-2xl font-black text-rose-300">{{ reportStats.fp }}</div>
-            </div>
-            <div class="bg-[#040914] border border-slate-800 rounded-lg p-3">
-              <div class="text-slate-400">Otros</div>
-              <div class="text-2xl font-black text-emerald-300">{{ reportStats.otros }}</div>
-            </div>
-            <div class="bg-[#040914] border border-slate-800 rounded-lg p-3">
-              <div class="text-slate-400">Responsabilidad TIC</div>
-              <div class="text-2xl font-black text-purple-300">{{ reportStats.responsabilidadTic }}</div>
-            </div>
+          <h2 class="font-black text-lg text-white mb-3">Informes de actividad</h2>
+          <div class="flex flex-wrap items-end gap-3 mb-4">
+            <div><span class="field-label">Desde</span><input type="date" v-model="reportFrom" class="field" /></div>
+            <div><span class="field-label">Hasta</span><input type="date" v-model="reportTo" class="field" /></div>
+            <button @click="exportReportCsv" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-xs font-bold transition">
+              <i class="ph ph-file-csv text-base"></i><span>Exportar CSV</span>
+            </button>
           </div>
-        </div>
 
-        <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <h2 class="font-black text-lg text-white mb-3">Filtrar por rango de fechas</h2>
-          <div class="flex flex-wrap items-end gap-2 mb-3">
-            <div><span class="field-label">Desde</span><input v-model="reportFrom" type="date" class="field" /></div>
-            <div><span class="field-label">Hasta</span><input v-model="reportTo" type="date" class="field" /></div>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Total avisos</p><p class="text-2xl font-black text-white">{{ reportStats.total }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Infantil/Primaria/ESO</p><p class="text-2xl font-black text-white">{{ reportStats.infantil_primaria_eso }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">FP</p><p class="text-2xl font-black text-white">{{ reportStats.fp }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Otros</p><p class="text-2xl font-black text-white">{{ reportStats.otros }}</p></div>
+            <div class="bg-[#040914] border border-slate-800 rounded-xl p-3"><p class="text-xs text-slate-400">Responsabilidad TIC</p><p class="text-2xl font-black text-white">{{ reportStats.responsabilidadTic }}</p></div>
           </div>
 
           <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -424,60 +439,64 @@
           </div>
         </div>
 
-        <!-- NUEVA SECCION: UNIDADES ORGANIZATIVAS AUTORIZADAS -->
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
-          <h2 class="font-black text-lg text-white mb-3">Unidades Organizativas (OU) autorizadas</h2>
-          <p class="text-xs text-slate-400 mb-3">
-            Los docentes cuyas cuentas pertenecen a estas unidades organizativas en Google Workspace podrán acceder automáticamente a la aplicación.
-            <br>Ejemplos de rutas de OU: <code class="bg-slate-900 px-1 py-0.5 rounded text-xs">/Docentes</code>, <code class="bg-slate-900 px-1 py-0.5 rounded text-xs">/Docentes/Primaria</code>
-          </p>
+          <h2 class="font-black text-lg text-white mb-3">Docentes autorizados</h2>
           <div class="flex flex-wrap items-center gap-2 mb-3">
-            <input v-model="newAllowedOu" placeholder="Ej: /Docentes o /Docentes/Primaria" class="flex-1 min-w-[280px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
-            <button @click="addAllowedOu" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir OU</button>
+            <input v-model="newAllowedEmail" placeholder="correo@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
+            <button @click="addAllowedTeacher" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
           </div>
           <div class="flex flex-wrap gap-2 mb-3">
-            <span v-for="ou in accessControl.allowedOus" :key="ou" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
-              <i class="ph ph-folder text-sky-400"></i>
-              {{ ou }}
-              <button @click="removeAllowedOu(ou)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
+            <span v-for="email in accessControl.allowedEmails" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+              {{ email }}
+              <button @click="removeAllowedTeacher(email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
             </span>
+            <span v-if="accessControl.allowedEmails.length === 0" class="text-xs text-slate-400">No hay docentes autorizados todavía.</span>
           </div>
-          <div v-if="accessControl.allowedOus.length === 0" class="text-xs text-slate-400 bg-slate-900/30 border border-slate-700 rounded p-2">
-            No hay unidades organizativas configuradas. Añade al menos una OU para que los docentes puedan acceder.
+
+          <div class="pt-3 border-t border-slate-800">
+            <span class="field-label">Importación masiva (CSV o correos separados por comas/saltos de línea)</span>
+            <textarea v-model="bulkAllowedEmailsText" rows="3" placeholder="correo1@sagrado-corazon.es, correo2@sagrado-corazon.es, ..." class="field mb-2"></textarea>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-500/50 text-xs font-bold shadow-sm cursor-pointer transition">
+                <i class="ph ph-upload-simple text-base text-indigo-400"></i>
+                <span>Subir CSV</span>
+                <input type="file" accept=".csv,text/csv,.txt" class="hidden" @change="importAllowedEmailsFromFile" />
+              </label>
+              <button @click="addBulkAllowedTeachers" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir todos</button>
+            </div>
           </div>
         </div>
 
         <div class="bg-[#070e1e]/90 border border-slate-800 rounded-xl p-4">
           <h2 class="font-black text-lg text-white mb-3">Correos de dirección por etapa</h2>
-          <p class="text-xs text-slate-400 mb-3">Correos a los que se notificarán los avisos según su etapa.</p>
-          <div v-for="etapa in etapas" :key="etapa.value" class="mb-4 pb-4 border-b border-slate-800 last:border-b-0 last:mb-0 last:pb-0">
-            <h3 class="text-sm font-semibold text-slate-200 mb-2">{{ etapa.label }}</h3>
+          <p class="text-xs text-slate-400 mb-3">Se avisará a estos correos (además del solicitante) al pulsar "Notificar por email" en un aviso de cada etapa.</p>
+          <div v-for="e in etapas" :key="e.value" class="mb-4">
+            <span class="field-label">{{ e.label }}</span>
             <div class="flex flex-wrap items-center gap-2 mb-2">
-              <input v-model="newEtapaEmail[etapa.value]" placeholder="correo@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
-              <button @click="addEtapaEmail(etapa.value)" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
+              <input v-model="newEtapaEmail[e.value]" placeholder="direccion@sagrado-corazon.es" class="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-slate-700 bg-[#040914] text-xs" />
+              <button @click="addEtapaEmail(e.value)" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Añadir</button>
             </div>
             <div class="flex flex-wrap gap-2">
-              <span v-for="email in (etapaEmails[etapa.value] || [])" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
+              <span v-for="email in (etapaEmails[e.value] || [])" :key="email" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#040914] border border-slate-700 text-xs">
                 {{ email }}
-                <button @click="removeEtapaEmail(etapa.value, email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
+                <button @click="removeEtapaEmail(e.value, email)" class="text-red-400 hover:text-red-200"><i class="ph ph-x"></i></button>
               </span>
+              <span v-if="(etapaEmails[e.value] || []).length === 0" class="text-xs text-slate-400">Sin correos configurados.</span>
             </div>
           </div>
         </div>
       </section>
-
     </div>
   </div>
 
-  <script>
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbwKY36sInvCk6yleQgpqzjFXLc0eh2wgx4MbCpzD6Ot6DmEQSDly02hHkxdu4LK340S/exec'; // REEMPLAZA CON LA URL /exec DE TU APPS SCRIPT
+  <script type="module">
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzheDFsGDWMfv7xfnyThaMLYqNEhqRrPibisg51PvT9qjBIHWwvxuxOehRqyiaJSEt6/exec';
                             
     const { createApp } = Vue;
 
     createApp({
       data() {
         return {
-          URL_DEL_SCRIPT,
           driveUrl: URL_DEL_SCRIPT.includes('script.google.com') ? URL_DEL_SCRIPT : '',
           institutionalDomain: 'sagrado-corazon.es',
           googleClientId: '523053820797-pgh6mp7hagllp1cdhul8l5j2lulb78g2.apps.googleusercontent.com',
@@ -492,8 +511,9 @@
           toastTimer: null,
 
           isAdmin: false,
-          accessControl: { adminEmails: [], allowedOus: [], fixedAdminEmails: [] },
-          newAllowedOu: '',
+          accessControl: { adminEmails: [], allowedEmails: [], fixedAdminEmails: [] },
+          newAllowedEmail: '',
+          bulkAllowedEmailsText: '',
           newAdminEmail: '',
 
           activeTab: 'nuevo',
@@ -678,196 +698,255 @@
         },
         async ensureGoogleLoginReady() {
           this.isLoadingAuth = true; this.authError = '';
-          try {
-            const ok = await this.loadGoogleIdentityScript();
-            if (!ok) throw new Error('Google Identity Services no se pudo cargar');
-            window.google.accounts.id.initialize({ client_id: this.googleClientId });
-            const el = this.$refs.googleLoginBtn;
-            if (el) {
-              el.innerHTML = '';
-              window.google.accounts.id.renderButton(el, {
-                theme: 'filled_blue', size: 'large', locale: 'es', width: '300'
-              });
-              window.google.accounts.id.prompt((notification) => {
-                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {}
-              });
-            }
-          } catch (err) {
-            this.authError = `Error cargando Google: ${err.message}`;
-          } finally {
-            this.isLoadingAuth = false;
-          }
+          let loaded = !!(window.google && window.google.accounts && window.google.accounts.id);
+          if (!loaded) loaded = await this.loadGoogleIdentityScript();
+          this.isLoadingAuth = false;
+          if (!loaded) { this.authError = 'No se pudo cargar Google Identity Services. Revisa tu conexión.'; return false; }
+          await this.$nextTick();
+          this.renderGoogleLoginButton();
+          return true;
         },
-        handleGoogleSignIn(response) {
-          const credential = response.credential;
-          if (!credential) { this.authError = 'No se recibió credencial de Google.'; return; }
-          const validation = this.validateInstitutionalCredential(credential);
-          if (!validation.valid) { this.authError = validation.reason; return; }
-          this.saveStoredIdToken(credential);
-          this.currentUserEmail = validation.email;
-          this.isAuthenticated = true;
-          this.authError = '';
-          this.refreshSnapshot();
+        renderGoogleLoginButton() {
+          if (!this.$refs.googleLoginBtn || !window.google || !window.google.accounts || !window.google.accounts.id) return;
+          this.$refs.googleLoginBtn.innerHTML = '';
+          window.google.accounts.id.initialize({
+            client_id: this.googleClientId, callback: this.handleGoogleCredentialResponse,
+            auto_select: false, cancel_on_tap_outside: true, ux_mode: 'popup'
+          });
+          window.google.accounts.id.renderButton(this.$refs.googleLoginBtn, { type: 'standard', theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: 320 });
         },
         async initializeInstitutionalAccess() {
-          const stored = this.getStoredIdToken();
-          if (stored) {
-            const validation = this.validateInstitutionalCredential(stored);
-            if (validation.valid) {
-              this.currentUserEmail = validation.email;
-              this.isAuthenticated = true;
-              return;
-            } else {
-              this.clearStoredIdToken();
-            }
+          if (!this.googleClientId || this.googleClientId.includes('PON_AQUI_TU_GOOGLE_CLIENT_ID')) {
+            this.authError = 'Configura el Google Client ID.'; return;
+          }
+          const token = this.getStoredIdToken();
+          if (token) {
+            const check = this.validateInstitutionalCredential(token);
+            if (check.valid) { this.currentUserEmail = check.email; this.isAuthenticated = true; return; }
+            this.clearStoredIdToken();
           }
           await this.ensureGoogleLoginReady();
-          window.handleGoogleSignIn = this.handleGoogleSignIn.bind(this);
         },
-        logoutInstitutionalSession() {
-          this.clearStoredIdToken();
-          this.isAuthenticated = false;
-          this.currentUserEmail = '';
-          this.isAdmin = false;
-          this.tickets = [];
+        async handleGoogleCredentialResponse(response) {
+          const credential = response && response.credential ? response.credential : '';
+          const check = this.validateInstitutionalCredential(credential);
+          if (!check.valid) {
+            this.authError = check.reason; this.isAuthenticated = false; this.currentUserEmail = ''; this.clearStoredIdToken(); return;
+          }
+          this.saveStoredIdToken(credential);
+          this.currentUserEmail = check.email;
+          this.isAuthenticated = true;
           this.authError = '';
-          this.lastSyncError = '';
-          this.ensureGoogleLoginReady();
+          this.ticketForm.SolicitanteNombre = this.ticketForm.SolicitanteNombre || check.email.split('@')[0];
+          await this.refreshSnapshot();
         },
-
-        // ---------- CONEXIÓN AL BACKEND ----------
-        async postToServer(action, payload) {
+        async logoutInstitutionalSession() {
+          this.isAuthenticated = false; this.currentUserEmail = ''; this.isAdmin = false; this.clearStoredIdToken();
+          if (window.google && window.google.accounts && window.google.accounts.id) window.google.accounts.id.disableAutoSelect();
+          await this.ensureGoogleLoginReady();
+        },
+        mapServerAuthError(code) {
+          if (code === 'EMAIL_NOT_ALLOWED') return 'Tu cuenta no tiene permiso para usar esta aplicación.';
+          if (code === 'TOKEN_REQUIRED') return 'Sesión caducada. Inicia sesión de nuevo.';
+          if (code === 'INVALID_TOKEN' || code === 'TOKENINFO_HTTP_400') return 'Token inválido. Vuelve a iniciar sesión.';
+          if (code === 'INVALID_DOMAIN' || code === 'INVALID_HOSTED_DOMAIN') return `Usa una cuenta @${this.institutionalDomain}.`;
+          return 'No se pudo validar tu acceso.';
+        },
+        async postToServer(action, payload = {}) {
+          if (!this.isUrlConfigured) throw new Error('URL_SCRIPT_NOT_CONFIGURED');
           const idToken = this.getStoredIdToken();
-          if (!idToken) throw new Error('No hay token');
           const response = await fetch(this.driveUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken, action, payload })
+            method: 'POST', mode: 'cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, payload, idToken, t: Date.now() })
           });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = await response.json();
-          if (!data.success) throw new Error(data.error || 'ERROR_DESCONOCIDO');
+          const text = await response.text();
+          let data;
+          try { data = JSON.parse(text || '{}'); } catch (err) { throw new Error(`NON_JSON_${response.status}`); }
+          if (!data.success) throw new Error(data.error || 'SERVER_ERROR');
           return data;
         },
+        async handleAuthFailure(code) {
+          if (['EMAIL_NOT_ALLOWED', 'TOKEN_REQUIRED', 'INVALID_TOKEN', 'TOKENINFO_HTTP_400', 'INVALID_DOMAIN', 'INVALID_HOSTED_DOMAIN'].includes(code)) {
+            this.authError = this.mapServerAuthError(code);
+            await this.logoutInstitutionalSession();
+            return true;
+          }
+          return false;
+        },
         async refreshSnapshot() {
-          await this.runBusy('Sincronizando datos...', async () => {
+          if (!this.isAuthenticated) return;
+          this.lastSyncError = '';
+          await this.runBusy('Cargando datos...', async () => {
             try {
               const data = await this.postToServer('read', { cursoAcademicoId: this.selectedCursoAcademicoId });
-              this.currentUserEmail = data.user.email;
-              this.isAdmin = data.user.isAdmin;
-              this.accessControl = data.accessControl;
-              this.etapaEmails = data.etapaEmails;
-              this.etapas = data.etapas || [];
-              this.tickets = data.tickets || [];
-              this.cursosAcademicos = data.cursosAcademicos || [];
+              this.tickets = Array.isArray(data.tickets) ? data.tickets : [];
+              this.etapas = Array.isArray(data.etapas) ? data.etapas : [];
+              this.etapaEmails = data.etapaEmails || {};
+              this.cursosAcademicos = Array.isArray(data.cursosAcademicos) ? data.cursosAcademicos : [];
               this.activeCursoAcademicoId = data.activeCursoAcademicoId || '';
-              this.selectedCursoAcademicoId = data.selectedCursoAcademicoId || '';
-              this.lastSyncError = '';
+              this.selectedCursoAcademicoId = data.selectedCursoAcademicoId || this.activeCursoAcademicoId;
+              this.accessControl = data.accessControl || { adminEmails: [], allowedEmails: [], fixedAdminEmails: [] };
+              this.isAdmin = !!(data.user && data.user.isAdmin);
+              if (this.isAdmin) {
+                if (this.activeTab === 'nuevo') this.activeTab = 'avisos';
+              } else if (this.activeTab !== 'nuevo' && this.activeTab !== 'avisos') {
+                this.activeTab = 'nuevo';
+              }
+              this.showToast('success', 'Datos actualizados correctamente.');
             } catch (err) {
-              const code = (err && err.message) ? err.message : 'ERROR';
-              this.lastSyncError = `Fallo sincronizando: ${code}`;
+              const code = (err && err.message) ? err.message : 'READ_FAILED';
+              this.lastSyncError = `Fallo cargando datos: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
             }
           });
         },
 
-        // ---------- OPERACIONES DE TICKETS ----------
-        openTicketDetail(t) {
-          this.selectedTicket = t;
-          this.ticketEditForm = {
-            Estado: t.Estado || 'nuevo',
-            ResponsabilidadTIC: !!t.ResponsabilidadTIC,
-            TiempoInvertidoMinutos: t.TiempoInvertidoMinutos || 0,
-            Comentario: '',
-            SolucionInterna: t.SolucionInterna || '',
-            Observaciones: t.Observaciones || ''
-          };
-        },
-        onEstadoEditChange() {
-          // puede haber lógica adicional aqui si es necesario
-        },
-        async updateTicketDetail() {
-          if (!this.selectedTicket) return;
-          await this.runBusy('Guardando cambios...', async () => {
-            try {
-              const data = await this.postToServer('update_ticket', {
-                id: this.selectedTicket.id,
-                Estado: this.ticketEditForm.Estado,
-                ResponsabilidadTIC: this.ticketEditForm.ResponsabilidadTIC,
-                TiempoInvertidoMinutos: this.ticketEditForm.TiempoInvertidoMinutos,
-                Comentario: this.ticketEditForm.Comentario,
-                SolucionInterna: this.ticketEditForm.SolucionInterna,
-                Observaciones: this.ticketEditForm.Observaciones
-              });
-              const idx = this.tickets.findIndex((t) => t.id === this.selectedTicket.id);
-              if (idx >= 0) this.tickets[idx] = data.ticket;
-              this.selectedTicket = null;
-              this.showToast('success', 'Aviso actualizado correctamente.');
-            } catch (err) {
-              const code = (err && err.message) ? err.message : 'ERROR';
-              this.lastSyncError = `Fallo actualizando: ${code}`;
-              this.showToast('error', this.lastSyncError);
-            }
-          });
-        },
-        async deleteTicketDetail() {
-          if (!this.selectedTicket) return;
-          if (!confirm('¿Estás seguro de que deseas eliminar este aviso? No se puede deshacer.')) return;
-          await this.runBusy('Eliminando aviso...', async () => {
-            try {
-              await this.postToServer('delete_ticket', { id: this.selectedTicket.id });
-              this.tickets = this.tickets.filter((t) => t.id !== this.selectedTicket.id);
-              this.selectedTicket = null;
-              this.showToast('success', 'Aviso eliminado correctamente.');
-            } catch (err) {
-              const code = (err && err.message) ? err.message : 'ERROR';
-              this.lastSyncError = `Fallo eliminando: ${code}`;
-              this.showToast('error', this.lastSyncError);
-            }
-          });
-        },
+        // ---------- CREACION DE AVISOS ----------
         async sendTicket() {
-          if (!this.ticketForm.Titulo) { this.showToast('error', 'El título es obligatorio.'); return; }
-          if (!this.ticketForm.Descripcion) { this.showToast('error', 'La descripción es obligatoria.'); return; }
-          if (!this.ticketForm.Etapa) { this.showToast('error', 'Selecciona una etapa.'); return; }
+          if (!this.ticketForm.Titulo || !this.ticketForm.Descripcion) { this.showToast('error', 'Indica al menos un título y una descripción.'); return; }
+          if (!this.ticketForm.Etapa) { this.showToast('error', 'Selecciona la etapa.'); return; }
           await this.runBusy('Enviando aviso...', async () => {
             try {
               const data = await this.postToServer('create_ticket', this.ticketForm);
               this.tickets.push(data.ticket);
-              this.ticketForm = { Titulo: '', SolicitanteNombre: '', Etapa: '', Lugar: '', Categoria: '', Descripcion: '' };
-              this.showToast('success', 'Aviso enviado correctamente.');
+              this.ticketForm = { Titulo: '', SolicitanteNombre: this.ticketForm.SolicitanteNombre, Etapa: '', Lugar: '', Categoria: '', Descripcion: '' };
+              this.showToast('success', 'Aviso enviado correctamente. El TIC ha sido notificado.');
+              this.activeTab = 'avisos';
             } catch (err) {
               const code = (err && err.message) ? err.message : 'ERROR';
-              this.lastSyncError = `Fallo enviando: ${code}`;
+              this.lastSyncError = `Fallo enviando el aviso: ${code}`;
               this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
             }
           });
         },
         async sendTask() {
-          if (!this.taskForm.Titulo) { this.showToast('error', 'El título es obligatorio.'); return; }
+          if (!this.taskForm.Titulo) { this.showToast('error', 'Indica al menos un título para la tarea.'); return; }
           await this.runBusy('Registrando tarea...', async () => {
             try {
               const data = await this.postToServer('create_task', this.taskForm);
               this.tickets.push(data.ticket);
               this.taskForm = { Titulo: '', Etapa: '', Lugar: '', Categoria: '', Descripcion: '', Estado: 'nuevo' };
               this.showToast('success', 'Tarea registrada correctamente.');
+              this.activeTab = 'avisos';
             } catch (err) {
               const code = (err && err.message) ? err.message : 'ERROR';
-              this.lastSyncError = `Fallo registrando: ${code}`;
+              this.lastSyncError = `Fallo registrando la tarea: ${code}`;
               this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
             }
           });
         },
 
-        // ---------- ADMIN: CURSOS ACADEMICOS ----------
-        async saveCursoAcademico() {
-          const name = this.cursoAcademicoForm.Nombre_Curso.trim();
-          if (!name) { this.showToast('error', 'El nombre del curso es obligatorio.'); return; }
-          await this.runBusy('Guardando curso...', async () => {
+        // ---------- DETALLE / EDICION DE AVISOS ----------
+        openTicketDetail(t) {
+          this.selectedTicket = t;
+          const minutos = t.TiempoInvertidoMinutos || 0;
+          this.ticketEditForm = {
+            Estado: t.Estado,
+            ResponsabilidadTIC: !!t.ResponsabilidadTIC,
+            Comentario: '',
+            SolucionInterna: t.SolucionInterna || '',
+            Observaciones: t.Observaciones || '',
+            FechaResolucion: this.toDatetimeLocal(t.FechaResolucion),
+            TiempoInvertidoHoras: Math.floor(minutos / 60),
+            TiempoInvertidoMinutos: minutos % 60
+          };
+        },
+        onEstadoEditChange() {
+          if ((this.ticketEditForm.Estado === 'resuelto' || this.ticketEditForm.Estado === 'cerrado')) {
+            if (!this.ticketEditForm.FechaResolucion) this.ticketEditForm.FechaResolucion = this.toDatetimeLocal(new Date().toISOString());
+          } else {
+            this.ticketEditForm.FechaResolucion = '';
+          }
+        },
+        async saveTicketChanges() {
+          if (!this.selectedTicket) return;
+          await this.runBusy('Guardando cambios...', async () => {
             try {
-              const data = await this.postToServer('upsert_curso_academico', {
-                id: `curso_${Date.now()}`,
-                Nombre_Curso: name
+              const totalMinutos = (Number(this.ticketEditForm.TiempoInvertidoHoras) || 0) * 60 + (Number(this.ticketEditForm.TiempoInvertidoMinutos) || 0);
+              const data = await this.postToServer('update_ticket', {
+                id: this.selectedTicket.id,
+                cursoAcademicoId: this.selectedCursoAcademicoId,
+                Estado: this.ticketEditForm.Estado,
+                ResponsabilidadTIC: this.ticketEditForm.ResponsabilidadTIC,
+                Comentario: this.ticketEditForm.Comentario,
+                SolucionInterna: this.ticketEditForm.SolucionInterna,
+                Observaciones: this.ticketEditForm.Observaciones,
+                FechaResolucion: this.fromDatetimeLocal(this.ticketEditForm.FechaResolucion),
+                TiempoInvertidoMinutos: totalMinutos
               });
+              const idx = this.tickets.findIndex((t) => t.id === data.ticket.id);
+              if (idx >= 0) this.tickets[idx] = data.ticket;
+              this.selectedTicket = data.ticket;
+              this.ticketEditForm.Comentario = '';
+              this.showToast('success', 'Aviso actualizado correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo guardando cambios: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+        async notifyTicketStatus() {
+          if (!this.selectedTicket) return;
+          await this.runBusy('Enviando notificación por email...', async () => {
+            try {
+              const data = await this.postToServer('notify_ticket', { id: this.selectedTicket.id, cursoAcademicoId: this.selectedCursoAcademicoId });
+              const idx = this.tickets.findIndex((t) => t.id === data.ticket.id);
+              if (idx >= 0) this.tickets[idx] = data.ticket;
+              this.selectedTicket = data.ticket;
+              this.showToast('success', 'Notificación enviada correctamente.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo enviando la notificación: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+        async removeTicket() {
+          if (!this.selectedTicket) return;
+          if (!confirm(`¿Eliminar el aviso "${this.selectedTicket.Titulo}"?`)) return;
+          await this.runBusy('Eliminando aviso...', async () => {
+            try {
+              await this.postToServer('delete_ticket', { id: this.selectedTicket.id, cursoAcademicoId: this.selectedCursoAcademicoId });
+              this.tickets = this.tickets.filter((t) => t.id !== this.selectedTicket.id);
+              this.selectedTicket = null;
+              this.showToast('success', 'Aviso eliminado.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo eliminando el aviso: ${code}`;
+              this.showToast('error', this.lastSyncError);
+              await this.handleAuthFailure(code);
+            }
+          });
+        },
+
+        // ---------- INFORMES ----------
+        exportReportCsv() {
+          const headers = ['Titulo', 'Etapa', 'Lugar', 'Categoria', 'Solicitante', 'Email', 'Estado', 'ResponsabilidadTIC', 'FechaCreacion', 'FechaResolucion', 'TiempoResolucion', 'TiempoInvertidoMinutos'];
+          const rows = this.reportTickets.map((t) => [
+            t.Titulo, this.etapaLabel(t.Etapa), t.Lugar || '', t.Categoria || '', t.SolicitanteNombre || '', t.SolicitanteEmail || '',
+            this.estadoLabel(t.Estado), t.ResponsabilidadTIC ? 'Si' : 'No', t.FechaCreacion || '', t.FechaResolucion || '', this.resolutionTime(t), t.TiempoInvertidoMinutos || 0
+          ]);
+          const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+          const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `informe_tic_${this.reportFrom || 'inicio'}_${this.reportTo || 'fin'}.csv`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        },
+
+        // ---------- ADMINISTRACION ----------
+        async saveCursoAcademico() {
+          if (!this.cursoAcademicoForm.Nombre_Curso) { this.showToast('error', 'Indica un nombre para el curso académico.'); return; }
+          await this.runBusy('Guardando curso académico...', async () => {
+            try {
+              const data = await this.postToServer('upsert_curso_academico', this.cursoAcademicoForm);
               this.cursosAcademicos = data.cursosAcademicos;
               this.activeCursoAcademicoId = data.activeCursoAcademicoId;
               this.cursoAcademicoForm = { Nombre_Curso: '' };
@@ -892,34 +971,17 @@
             }
           });
         },
-
-        // ---------- ADMIN: UNIDADES ORGANIZATIVAS (MODIFICADO) ----------
-        async addAllowedOu() {
-          const ou = this.newAllowedOu.trim();
-          if (!ou) { this.showToast('error', 'Indica una unidad organizativa válida (ej: /Docentes).'); return; }
-          const ous = Array.from(new Set([...this.accessControl.allowedOus, ou]));
-          await this.saveAllowedOus(ous);
-          this.newAllowedOu = '';
+        async addAllowedTeacher() {
+          const email = this.normalizeEmail(this.newAllowedEmail);
+          if (!email || !email.endsWith(`@${this.institutionalDomain}`)) { this.showToast('error', `El correo debe pertenecer al dominio @${this.institutionalDomain}.`); return; }
+          const emails = Array.from(new Set([...this.accessControl.allowedEmails, email]));
+          await this.saveAllowedTeachers(emails);
+          this.newAllowedEmail = '';
         },
-        async removeAllowedOu(ou) {
-          const ous = this.accessControl.allowedOus.filter((o) => o !== ou);
-          await this.saveAllowedOus(ous);
+        async removeAllowedTeacher(email) {
+          const emails = this.accessControl.allowedEmails.filter((e) => e !== email);
+          await this.saveAllowedTeachers(emails);
         },
-        async saveAllowedOus(ous) {
-          await this.runBusy('Actualizando unidades organizativas...', async () => {
-            try {
-              const data = await this.postToServer('set_allowed_ous', { ous });
-              this.accessControl = data.accessControl;
-              this.showToast('success', 'Unidades organizativas actualizadas.');
-            } catch (err) {
-              const code = (err && err.message) ? err.message : 'ERROR';
-              this.lastSyncError = `Fallo actualizando OUs: ${code}`;
-              this.showToast('error', this.lastSyncError);
-            }
-          });
-        },
-
-        // ---------- ADMIN: ADMINISTRADORES ----------
         isFixedAdmin(email) { return (this.accessControl.fixedAdminEmails || []).includes(email); },
         async addAdminEmail() {
           const email = this.normalizeEmail(this.newAdminEmail);
@@ -946,8 +1008,46 @@
             }
           });
         },
-
-        // ---------- ADMIN: CORREOS POR ETAPA ----------
+        parseEmailListText(text) {
+          return (text || '').split(/[\s,;]+/).map((v) => this.normalizeEmail(v)).filter((v) => !!v && v.endsWith(`@${this.institutionalDomain}`));
+        },
+        async addBulkAllowedTeachers() {
+          const parsed = this.parseEmailListText(this.bulkAllowedEmailsText);
+          if (parsed.length === 0) { this.showToast('error', `No se encontró ningún correo válido del dominio @${this.institutionalDomain}.`); return; }
+          const emails = Array.from(new Set([...this.accessControl.allowedEmails, ...parsed]));
+          await this.saveAllowedTeachers(emails);
+          this.bulkAllowedEmailsText = '';
+          this.showToast('success', `${parsed.length} correo/s añadidos a la lista.`);
+        },
+        async importAllowedEmailsFromFile(event) {
+          const file = event && event.target && event.target.files ? event.target.files[0] : null;
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const parsed = this.parseEmailListText(text);
+            if (parsed.length === 0) { this.showToast('error', `El archivo no contiene correos válidos del dominio @${this.institutionalDomain}.`); return; }
+            const emails = Array.from(new Set([...this.accessControl.allowedEmails, ...parsed]));
+            await this.saveAllowedTeachers(emails);
+            this.showToast('success', `${parsed.length} correo/s importados desde el archivo.`);
+          } catch (err) {
+            this.showToast('error', 'No se pudo leer el archivo CSV.');
+          } finally {
+            if (event && event.target) event.target.value = '';
+          }
+        },
+        async saveAllowedTeachers(emails) {
+          await this.runBusy('Actualizando docentes autorizados...', async () => {
+            try {
+              const data = await this.postToServer('set_allowed_teachers', { emails });
+              this.accessControl = data.accessControl;
+              this.showToast('success', 'Lista de docentes autorizados actualizada.');
+            } catch (err) {
+              const code = (err && err.message) ? err.message : 'ERROR';
+              this.lastSyncError = `Fallo actualizando docentes autorizados: ${code}`;
+              this.showToast('error', this.lastSyncError);
+            }
+          });
+        },
         async addEtapaEmail(etapa) {
           const email = this.normalizeEmail(this.newEtapaEmail[etapa]);
           if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.showToast('error', 'Indica un correo válido.'); return; }
