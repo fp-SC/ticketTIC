@@ -490,7 +490,7 @@
   </div>
 
   <script type="module">
-    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzheDFsGDWMfv7xfnyThaMLYqNEhqRrPibisg51PvT9qjBIHWwvxuxOehRqyiaJSEt6/exec';
+    const URL_DEL_SCRIPT = 'https://script.google.com/macros/s/AKfycby_wfGLuzHPA8i7Hl82MdIP3p_DdFE_NwsWjGySTe6rzMrVoliAKTju4nc5MQgEeOcD/exec';
                             
     const { createApp } = Vue;
 
@@ -666,13 +666,41 @@
         },
         validateInstitutionalCredential(credential) {
           const payload = this.parseJwtPayload(credential);
-          if (!payload) return { valid: false, reason: 'No se pudo validar el token de autenticación.' };
+          
+          // ✅ NUEVA VALIDACIÓN: Comprobar expiración
+          if (!payload) {
+            return { valid: false, reason: 'No se pudo validar el token de autenticación.' };
+          }
+          
+          // Verificar que el token no haya expirado
+          if (payload.exp) {
+            const ahora = Math.floor(Date.now() / 1000);
+            const tiempoRestante = payload.exp - ahora;
+            
+            if (tiempoRestante <= 0) {
+              return { valid: false, reason: 'Sesión expirada. Inicia sesión de nuevo.' };
+            }
+            
+            // ⚠️ ADVERTENCIA: Si quedan menos de 5 minutos, avisar
+            if (tiempoRestante < 300) {
+              console.warn(`⚠️ Token vence en ${tiempoRestante}s`);
+              return { 
+                valid: false, 
+                reason: 'Tu sesión está a punto de expirar. Inicia sesión de nuevo.' 
+              };
+            }
+          }
+          
           const email = this.normalizeEmail(payload.email);
           const verified = !!payload.email_verified;
           const domainOk = email.endsWith(`@${this.institutionalDomain}`);
           const hd = (payload.hd || '').toLowerCase();
           const hostedDomainOk = !hd || hd === this.institutionalDomain;
-          if (!verified || !domainOk || !hostedDomainOk) return { valid: false, reason: `Acceso denegado. Usa una cuenta @${this.institutionalDomain}.` };
+          
+          if (!verified || !domainOk || !hostedDomainOk) {
+            return { valid: false, reason: `Acceso denegado. Usa una cuenta @${this.institutionalDomain}.` };
+          }
+          
           return { valid: true, email };
         },
         getStoredIdToken() { return localStorage.getItem('tic_id_token') || ''; },
@@ -754,15 +782,40 @@
         },
         async postToServer(action, payload = {}) {
           if (!this.isUrlConfigured) throw new Error('URL_SCRIPT_NOT_CONFIGURED');
+          
           const idToken = this.getStoredIdToken();
+          
+          // ✅ VALIDAR ANTES DE ENVIAR
+          const check = this.validateInstitutionalCredential(idToken);
+          if (!check.valid) {
+            this.authError = check.reason;
+            await this.logoutInstitutionalSession();
+            throw new Error('TOKEN_INVALID_OR_EXPIRED');
+          }
+          
           const response = await fetch(this.driveUrl, {
-            method: 'POST', mode: 'cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            method: 'POST', 
+            mode: 'cors', 
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action, payload, idToken, t: Date.now() })
           });
+          
           const text = await response.text();
           let data;
-          try { data = JSON.parse(text || '{}'); } catch (err) { throw new Error(`NON_JSON_${response.status}`); }
-          if (!data.success) throw new Error(data.error || 'SERVER_ERROR');
+          try { 
+            data = JSON.parse(text || '{}'); 
+          } catch (err) { 
+            throw new Error(`NON_JSON_${response.status}`); 
+          }
+          
+          if (!data.success) {
+            // Si el error es de autenticación, desconectar
+            if (data.error && data.error.includes('TOKEN')) {
+              await this.handleAuthFailure(data.error);
+            }
+            throw new Error(data.error || 'SERVER_ERROR');
+          }
+          
           return data;
         },
         async handleAuthFailure(code) {
